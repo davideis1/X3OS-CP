@@ -4,6 +4,7 @@
 #include <common/FsApiConstants.h>  // for oflag_t
 #include <freertos/semphr.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,6 +30,9 @@ class HalStorage {
   bool writeFile(const char* path, const String& content);
   // Ensure a directory exists, creating it if necessary. Returns true on success.
   bool ensureDirectoryExists(const char* path);
+  // Total and used bytes on the SD card.
+  uint64_t getTotalBytes();
+  uint64_t getUsedBytes();
 
   HalFile open(const char* path, const oflag_t oflag = O_RDONLY);
   bool mkdir(const char* path, const bool pFlag = true);

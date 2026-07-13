@@ -14,12 +14,14 @@
 #include "home/HomeActivity.h"
 #include "home/LibraryChoiceActivity.h"
 #include "home/RecentBooksActivity.h"
+#include "home/TodoActivity.h"
 #include "home/ToolsFolderActivity.h"
 #include "network/TinyRdrWebServerActivity.h"
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
 #include "util/ComingSoonActivity.h"
+#include "util/DiagnosticsActivity.h"
 #include "util/FullScreenMessageActivity.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
@@ -212,6 +214,12 @@ void ActivityManager::goToComingSoon(StrId title) {
   replaceActivity(std::make_unique<ComingSoonActivity>(renderer, mappedInput, title));
 }
 
+void ActivityManager::goToDiagnostics() {
+  replaceActivity(std::make_unique<DiagnosticsActivity>(renderer, mappedInput));
+}
+
+void ActivityManager::goToTodo() { replaceActivity(std::make_unique<TodoActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -240,8 +248,10 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "Settings") {
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
-    } else if (activityName == "ToolsFolder") {
+    } else if (activityName == "ToolsFolder" || activityName == "Diagnostics") {
       initialMenuItem = HomeMenuItem::TOOLS;
+    } else if (activityName == "Todo") {
+      initialMenuItem = HomeMenuItem::TODO;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem));

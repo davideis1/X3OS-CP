@@ -266,7 +266,7 @@ void HomeActivity::onGridConfirm(HomeMenuItem item) {
       activityManager.goToFileTransfer();
       break;
     case HomeMenuItem::TODO:
-      activityManager.goToComingSoon(StrId::STR_TODO);
+      activityManager.goToTodo();
       break;
     case HomeMenuItem::NOTES:
       activityManager.goToComingSoon(StrId::STR_NOTES);

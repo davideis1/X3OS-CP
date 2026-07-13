@@ -11,14 +11,16 @@
 #include "util/GridNavigator.h"
 
 namespace {
+enum class ToolId { CALCULATOR, CONVERT, SUDOKU, KLONDIKE, DIAGNOSTICS, WEATHER };
 struct ToolDef {
+  ToolId id;
   StrId label;
   UIIcon icon;
 };
 constexpr ToolDef kTools[ToolsFolderActivity::itemCount] = {
-    {StrId::STR_CALCULATOR, UIIcon::None},  {StrId::STR_CONVERT, UIIcon::None},
-    {StrId::STR_SUDOKU, UIIcon::None},      {StrId::STR_KLONDIKE, UIIcon::None},
-    {StrId::STR_DIAGNOSTICS, UIIcon::None}, {StrId::STR_WEATHER, UIIcon::Weather},
+    {ToolId::CALCULATOR, StrId::STR_CALCULATOR, UIIcon::None},   {ToolId::CONVERT, StrId::STR_CONVERT, UIIcon::None},
+    {ToolId::SUDOKU, StrId::STR_SUDOKU, UIIcon::None},           {ToolId::KLONDIKE, StrId::STR_KLONDIKE, UIIcon::None},
+    {ToolId::DIAGNOSTICS, StrId::STR_DIAGNOSTICS, UIIcon::None}, {ToolId::WEATHER, StrId::STR_WEATHER, UIIcon::Weather},
 };
 }  // namespace
 
@@ -34,7 +36,12 @@ void ToolsFolderActivity::loop() {
     return;
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    activityManager.goToComingSoon(kTools[selectedIndex].label);
+    const auto& tool = kTools[selectedIndex];
+    if (tool.id == ToolId::DIAGNOSTICS) {
+      activityManager.goToDiagnostics();
+    } else {
+      activityManager.goToComingSoon(tool.label);
+    }
     return;
   }
 
