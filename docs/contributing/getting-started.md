@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide helps you build and run CrossPoint locally.
+This guide helps you build and run TinyRdr locally.
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ The reported major version must be 21 or newer.
 
 ```sh
 git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
-cd crosspoint-reader
+cd tinyrdr
 ```
 
 If you already cloned without submodules:

@@ -1,4 +1,4 @@
-# CrossPoint Reader Development Guide
+# TinyRdr Development Guide
 
 Project: Open-source e-reader firmware for Xteink X4 (ESP32-C3)
 Mission: Provide a lightweight, high-performance reading experience focused on EPUB rendering on constrained hardware.
@@ -128,7 +128,7 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
   * lib/I18n/: Internationalization (translations in `translations/*.yaml`, generated string tables)
 * src/activities/: UI logic using the Activity Lifecycle (onEnter, loop, onExit)
 * freeink-sdk/: Low-level SDK (EInkDisplay, InputManager, BatteryMonitor, SDCardManager)
-* .crosspoint/: SD-based binary cache for EPUB metadata and pre-rendered layout sections
+* .tinyrdr/: SD-based binary cache for EPUB metadata and pre-rendered layout sections
 
 ### Hardware Abstraction Layer (HAL)
 
@@ -393,8 +393,8 @@ Constraint: Physical button positions are fixed on hardware, but their logical f
 ### Singleton Access
 **Available Singletons**:
 ```cpp
-#define SETTINGS CrossPointSettings::getInstance()  // User settings
-#define APP_STATE CrossPointState::getInstance()    // Runtime state
+#define SETTINGS TinyRdrSettings::getInstance()  // User settings
+#define APP_STATE TinyRdrState::getInstance()    // Runtime state
 #define GUI UITheme::getInstance()                   // Current theme
 #define Storage HalStorage::getInstance()            // SD card I/O
 #define I18N I18n::getInstance()                     // Internationalization
@@ -564,7 +564,7 @@ clang-format -i src/**/*.cpp src/**/*.h
    - Set pointers to `nullptr` after `free()`
 
 4. **Corrupt Cache Files**:
-   - Delete `.crosspoint/` directory on SD card
+   - Delete `.tinyrdr/` directory on SD card
    - Forces clean re-parse of all EPUBs
    - Check file format versions in [docs/file-formats.md](../docs/file-formats.md)
 
@@ -607,7 +607,7 @@ git status --short
 
 **Example Output** (forked repository):
 ```text
-origin      https://github.com/<your-username>/crosspoint-reader.git (fetch/push)
+origin      https://github.com/<your-username>/tinyrdr.git (fetch/push)
 upstream    https://github.com/crosspoint-reader/crosspoint-reader.git (fetch/push)
 ```
 
@@ -804,7 +804,7 @@ build_flags =
 6. 🔲 **Device**: Test on hardware
 7. 🔲 **Orientations**: Verify all 4 modes (Portrait/Inverted/Landscape CW/CCW)
 8. 🔲 **Heap**: `ESP.getFreeHeap()` > 50KB, no leaks
-9. 🔲 **Cache**: If EPUB modified, delete `.crosspoint/` and verify re-parse
+9. 🔲 **Cache**: If EPUB modified, delete `.tinyrdr/` and verify re-parse
 
 ### CI/CD Pipeline Awareness
 
@@ -847,9 +847,9 @@ build_flags =
 
 ### Cache Structure on SD Card
 
-**Location**: `.crosspoint/` directory on SD card root
+**Location**: `.tinyrdr/` directory on SD card root
 
-**Structure**: `.crosspoint/epub_<hash>/{book.bin, progress.bin, cover.bmp, sections/*.bin}`
+**Structure**: `.tinyrdr/epub_<hash>/{book.bin, progress.bin, cover.bmp, sections/*.bin}`
 
 **Hash**: `std::hash<std::string>{}(filepath)` → Moving/renaming file = new hash = lost progress
 
@@ -873,13 +873,13 @@ build_flags =
 **Manual Cache Clear** (safe operations):
 ```bash
 # Delete ALL caches (forces full regeneration)
-rm -rf /path/to/sd/.crosspoint/
+rm -rf /path/to/sd/.tinyrdr/
 
 # Delete specific book cache
-rm -rf /path/to/sd/.crosspoint/epub_<hash>/
+rm -rf /path/to/sd/.tinyrdr/epub_<hash>/
 
 # Keep progress, delete only rendered sections
-rm -rf /path/to/sd/.crosspoint/epub_<hash>/sections/
+rm -rf /path/to/sd/.tinyrdr/epub_<hash>/sections/
 ```
 
 **When to Clear Cache**:
@@ -889,7 +889,7 @@ rm -rf /path/to/sd/.crosspoint/epub_<hash>/sections/
 - After modifying:
   - `lib/Epub/Epub/Section.cpp`
   - `lib/Epub/Epub/BookMetadataCache.cpp`
-  - Render settings in `CrossPointSettings`
+  - Render settings in `TinyRdrSettings`
 
 ### Cache File Format Versioning
 
@@ -918,4 +918,4 @@ struct PageLine {
 
 ---
 
-Philosophy: We are building a dedicated e-reader, not a Swiss Army knife. If a feature adds RAM pressure without significantly improving the reading experience, it is Out of Scope.
+Philosophy: We are building a e-reader/swiss army knife. If a feature adds RAM pressure without significantly improving the reading experience or adding a useful tool/game/feature, it is Out of Scope.

@@ -1,16 +1,16 @@
-# CrossPoint Reader
+# TinyRdr
 
 [![Fund contributors](https://img.shields.io/badge/%F0%9F%91%91_Fund_contributors-royalty.dev-BB953A?style=for-the-badge&labelColor=1a1a1a)](https://app.royalty.dev/crosspoint-reader/crosspoint-reader)
 
-CrossPoint is open-source e-reader firmware - community-built, fully hackable, free forever. It's maintained by a growing community of developers and readers who believe your device should do what you want - not what a manufacturer decided for you.
+TinyRdr is open-source e-reader firmware - community-built, fully hackable, free forever. It's maintained by a growing community of developers and readers who believe your device should do what you want - not what a manufacturer decided for you.
 
 **Now running on:** ESP32C3-based Xteink [X4](https://www.xteink.com/products/xteink-x4) and [X3](https://www.xteink.com/products/xteink-x3).
 
-![CrossPoint Reader running on Xteink device](./docs/images/cover.jpg)
+![TinyRdr running on Xteink device](./docs/images/cover.jpg)
 
 > If you're planning to buy an Xteink device, consider purchasing an **X3/X4 Developer Edition** through https://crosspointreader.com. CrossPoint receives a small share of each sale, helping fund development costs.
 
-## What can CrossPoint do?
+## What can TinyRdr do?
 
 - **Reader engine**: EPUB 2/3 rendering with embedded-style option, image handling, hyphenation, kerning, chapter navigation, footnotes, bookmarks, go-to-percent, auto page turn, orientation control, focus reading, KOReader progress sync and more. 
 
@@ -64,7 +64,7 @@ USB port or browser before assuming the device is locked. Only reach for the unl
 
 > ### ⚠️ WARNING: READ THIS BEFORE USING THE UNLOCKER ⚠️
 > 
-> **The only officially supported firmwares in the unlock tool are CrossPoint and CrossInk.**
+> **The only officially supported firmwares in the unlock tool are TinyRdr and CrossInk.**
 > 
 > Flashing any other firmware on a USB-locked device may **permanently brick the device** or leave it **permanently
 > stuck on that firmware with no recovery path**. Once USB flashing is re-locked, your only way back is via OTA, and if
@@ -154,7 +154,7 @@ Conversion runs the firmware repo's `lib/EpdFont/scripts/fontconvert_sdcard.py` 
 
 ```bash
 git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
-cd crosspoint-reader
+cd tinyrdr
 
 # if cloned without --recursive:
 git submodule update --init --recursive
@@ -201,15 +201,15 @@ Minor adjustments may be required for Windows.
 
 ## Internals
 
-CrossPoint Reader is pretty aggressive about caching data down to the SD card to minimise RAM usage. The ESP32-C3 only has ~380KB of usable RAM, so we have to be careful. A lot of the decisions made in the design of the firmware were based on this constraint.
+TinyRdr is pretty aggressive about caching data down to the SD card to minimise RAM usage. The ESP32-C3 only has ~380KB of usable RAM, so we have to be careful. A lot of the decisions made in the design of the firmware were based on this constraint.
 
 ### Data caching
 
 The first time chapters of a book are loaded, they are cached to the SD card. Subsequent loads are served from the
-cache. This cache directory exists at `.crosspoint` on the SD card. The structure is as follows:
+cache. This cache directory exists at `.tinyrdr` on the SD card. The structure is as follows:
 
 ```text
-.crosspoint/
+.tinyrdr/
 ├── epub_<hash>/         # one directory per book, named by content hash
 │   ├── progress.bin     # reading position (chapter, page, etc.)
 │   ├── cover.bmp        # generated cover image
@@ -225,7 +225,7 @@ cache. This cache directory exists at `.crosspoint` on the SD card. The structur
 └── recent.json          # recent books list
 ```
 
-Removing `/.crosspoint` clears all cached metadata and forces a full regeneration on next open. Book deletes, overwrites, and moves done through the firmware or web UI clear or re-key matching caches; manual SD-card edits may leave stale cache directories behind.
+Removing `/.tinyrdr` clears all cached metadata and forces a full regeneration on next open. Book deletes, overwrites, and moves done through the firmware or web UI clear or re-key matching caches; manual SD-card edits may leave stale cache directories behind.
 
 For more details on the internal file structures, see the [file formats document](./docs/file-formats.md).
 
@@ -241,7 +241,7 @@ Everyone here is a volunteer, so please be respectful and patient. For governanc
 
 ## Community forks
 
-One of the best things about open source is that anyone can take the code in a different direction. If you need something outside CrossPoint's [scope](./SCOPE.md), check out the community forks:
+One of the best things about open source is that anyone can take the code in a different direction. If you need something outside TinyRdr's [scope](./SCOPE.md), check out the community forks:
 
 - [CrossInk](https://github.com/uxjulia/CrossInk) — Typography and reading tracking: Bionic Reading (bolds word stems to create fixation points), guide dots between words, improved paragraph indents, and replaces the default fonts with ChareInk/Lexend/Bitter.
 
@@ -259,12 +259,12 @@ One of the best things about open source is that anyone can take the code in a d
 
 - [t5s3-reader](https://github.com/ShallowGreen123/t5s3-reader) — Crosspoint port for LilyGo T5 ePaper S3 / T5S3 4.7-inch e-paper device.
 
-**Note:** Many of these features will make their way into CrossPoint over time. We maintain a slower pace to ensure rock-solid stability and squash bugs before they reach your device.
+**Note:** Many of these features will make their way into TinyRdr over time. We maintain a slower pace to ensure rock-solid stability and squash bugs before they reach your device.
 
 Want to build your own device? Be sure to check out the [de-link](https://github.com/iandchasse/de-link) project.
 
 ---
 
-CrossPoint Reader is **not affiliated with Xteink or any device manufacturer**.
+TinyRdr is **not affiliated with Xteink or any device manufacturer**.
 
 Huge shoutout to [diy-esp32-epub-reader](https://github.com/atomic14/diy-esp32-epub-reader), which inspired this project.
