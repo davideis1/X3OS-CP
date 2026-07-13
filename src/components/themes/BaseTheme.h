@@ -54,6 +54,14 @@ struct ThemeMetrics {
   bool homeContinueReadingInMenu;
   int homeMenuTopOffset;
 
+  int gridTileCornerRadius;
+  int gridColumnSpacing;
+  int gridRowSpacing;
+  int gridLabelGap;
+  int folderMargin;
+  int folderPadding;
+  int folderCornerRadius;
+
   int buttonHintsHeight;
   int sideButtonHintsWidth;
 
@@ -113,7 +121,31 @@ struct ThemeMetrics {
   int textFieldLineEndOffset;
 };
 
-enum UIIcon { None = 0, Folder, Text, Image, Book, File, Recent, Settings, Transfer, Library, Wifi, Hotspot, Bookmark };
+enum UIIcon {
+  None = 0,
+  Folder,
+  Text,
+  Image,
+  Book,
+  File,
+  Recent,
+  Settings,
+  Transfer,
+  Library,
+  Wifi,
+  Hotspot,
+  Bookmark,
+  Tools,
+  Games,
+  Todo,
+  Notes,
+  Weather
+};
+
+struct GridTile {
+  UIIcon icon;
+  const char* label;
+};
 
 enum class KeyboardKeyType { Normal, Shift, Mode, Space, Del, Ok, Disabled };
 
@@ -144,6 +176,13 @@ constexpr ThemeMetrics values = {.batteryWidth = 15,
                                  .homeRecentBooksCount = 1,
                                  .homeContinueReadingInMenu = false,
                                  .homeMenuTopOffset = 10,
+                                 .gridTileCornerRadius = 10,
+                                 .gridColumnSpacing = 14,
+                                 .gridRowSpacing = 18,
+                                 .gridLabelGap = 6,
+                                 .folderMargin = 30,
+                                 .folderPadding = 16,
+                                 .folderCornerRadius = 12,
                                  .buttonHintsHeight = 40,
                                  .sideButtonHintsWidth = 30,
                                  .progressBarHeight = 16,
@@ -231,6 +270,12 @@ class BaseTheme {
   virtual void drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                               const std::function<std::string(int index)>& buttonLabel,
                               const std::function<UIIcon(int index)>& rowIcon) const;
+  // Draws a fixed-column icon grid (Home's main menu, Tools folder). Rows are derived from
+  // tiles.size() / columns. selectedIndex < 0 means nothing in the grid is selected.
+  virtual void drawIconGrid(const GfxRenderer& renderer, Rect rect, int columns, const std::vector<GridTile>& tiles,
+                            int selectedIndex) const;
+  // Draws a single grid icon glyph, procedurally (no bitmap asset), inverted when the tile is selected.
+  static void drawGridIconGlyph(const GfxRenderer& renderer, UIIcon icon, Rect box, bool inverted);
   virtual Rect drawPopup(const GfxRenderer& renderer, const char* message) const;
   virtual void drawOptionPopup(const GfxRenderer& renderer, const char* title, const std::vector<std::string>& options,
                                int selectedIndex) const;

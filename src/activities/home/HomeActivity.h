@@ -9,13 +9,17 @@
 struct RecentBook;
 struct Rect;
 
+// Home is a top "dock" row (continue-reading cover + a "Recents" link) followed by a fixed
+// 4x2 icon grid. The dock row and the grid are two separate selectable regions stitched together
+// by a single selectorIndex: [0, dockCount) is the dock, [dockCount, dockCount + gridItemCount)
+// is the grid. dockCount is 1 (Recents link only) when there's no book to continue, or 2 (cover +
+// Recents link) once a recent book exists.
 class HomeActivity final : public Activity {
   ButtonNavigator buttonNavigator;
   int selectorIndex = 0;
   bool recentsLoading = false;
   bool recentsLoaded = false;
   bool firstRenderDone = false;
-  bool hasOpdsServers = false;
   bool coverRendered = false;      // Track if cover has been rendered once
   bool coverBufferStored = false;  // Track if cover buffer is stored
   uint8_t* coverBuffer = nullptr;  // HomeActivity's own buffer for cover image
@@ -30,39 +34,18 @@ class HomeActivity final : public Activity {
   std::vector<RecentBook> recentBooks;
   const HomeMenuItem initialMenuItem;
 
-  // Convert HomeMenuItem to menu index (used in onEnter)
-  static int menuItemToIndex(HomeMenuItem item, bool hasOpdsUrl) {
-    int i = 0;
-    if (item == HomeMenuItem::FILE_BROWSER) return i;
-    ++i;
-    if (item == HomeMenuItem::RECENTS) return i;
-    ++i;
-    if (item == HomeMenuItem::OPDS_BROWSER) return hasOpdsUrl ? i : 0;
-    if (hasOpdsUrl) ++i;
-    if (item == HomeMenuItem::FILE_TRANSFER) return i;
-    ++i;
-    if (item == HomeMenuItem::SETTINGS_MENU) return i;
-    return 0;
-  }
+  // Fixed grid tile -> destination mapping (Home no longer has a variable item count: OPDS access
+  // is folded into the Library tile's chooser instead of a separate top-level slot).
+  static HomeMenuItem gridItemAt(int index);
+  static int gridIndexFor(HomeMenuItem item);
 
-  // Convert menu index to HomeMenuItem (used in loop)
-  static HomeMenuItem indexToMenuItem(int idx, bool hasOpdsUrl) {
-    int i = 0;
-    if (idx == i++) return HomeMenuItem::FILE_BROWSER;
-    if (idx == i++) return HomeMenuItem::RECENTS;
-    if (hasOpdsUrl && idx == i++) return HomeMenuItem::OPDS_BROWSER;
-    if (idx == i++) return HomeMenuItem::FILE_TRANSFER;
-    if (idx == i) return HomeMenuItem::SETTINGS_MENU;
-    return HomeMenuItem::NONE;
-  }
+  int dockCount() const { return recentBooks.empty() ? 1 : 2; }
+  bool isInDock() const { return selectorIndex < dockCount(); }
+  int gridIndex() const { return selectorIndex - dockCount(); }
+
   void onSelectBook(const std::string& path);
-  void onFileBrowserOpen();
-  void onRecentsOpen();
-  void onSettingsOpen();
-  void onFileTransferOpen();
-  void onOpdsBrowserOpen();
+  void onGridConfirm(HomeMenuItem item);
 
-  int getMenuItemCount() const;
   bool storeCoverBuffer();    // Store frame buffer for cover image
   bool restoreCoverBuffer();  // Restore frame buffer from stored cover
   void freeCoverBuffer();     // Free the stored cover buffer
@@ -70,6 +53,9 @@ class HomeActivity final : public Activity {
   void loadRecentCovers(int coverHeight);
 
  public:
+  static constexpr int gridColumns = 4;
+  static constexpr int gridItemCount = 8;
+
   explicit HomeActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
                         HomeMenuItem initialMenuItemValue = HomeMenuItem::NONE)
       : Activity("Home", renderer, mappedInput), initialMenuItem(initialMenuItemValue) {}

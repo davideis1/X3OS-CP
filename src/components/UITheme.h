@@ -23,7 +23,6 @@ class UITheme {
   static void drawCenteredText(const GfxRenderer& renderer, Rect screen, int fontId, int y, const char* text,
                                bool black = true, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
   void reload();
-  void setTheme(TinyRdrSettings::UI_THEME type);
   static int getNumberOfItemsPerPage(const GfxRenderer& renderer, bool hasHeader, bool hasTabBar, bool hasButtonHints,
                                      bool hasSubtitle, int extraReservedHeight = 0);
   static std::string getCoverThumbPath(std::string coverBmpPath, int coverHeight);

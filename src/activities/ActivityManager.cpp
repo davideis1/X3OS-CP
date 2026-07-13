@@ -12,11 +12,14 @@
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/HomeActivity.h"
+#include "home/LibraryChoiceActivity.h"
 #include "home/RecentBooksActivity.h"
+#include "home/ToolsFolderActivity.h"
 #include "network/TinyRdrWebServerActivity.h"
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
+#include "util/ComingSoonActivity.h"
 #include "util/FullScreenMessageActivity.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
@@ -195,6 +198,20 @@ void ActivityManager::goToBrowser() {
   }
 }
 
+void ActivityManager::goToTools() { replaceActivity(std::make_unique<ToolsFolderActivity>(renderer, mappedInput)); }
+
+void ActivityManager::goToLibrary() {
+  if (OPDS_STORE.hasServers()) {
+    replaceActivity(std::make_unique<LibraryChoiceActivity>(renderer, mappedInput));
+  } else {
+    goToFileBrowser();
+  }
+}
+
+void ActivityManager::goToComingSoon(StrId title) {
+  replaceActivity(std::make_unique<ComingSoonActivity>(renderer, mappedInput, title));
+}
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -213,16 +230,18 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
   if (initialMenuItem == HomeMenuItem::NONE && currentActivity) {
     const auto& activityName = currentActivity->name;
-    if (activityName == "FileBrowser") {
+    if (activityName == "FileBrowser" || activityName == "OpdsBookBrowser" || activityName == "LibraryChoice") {
+      // OPDS browsing is folded into the Library tile's chooser now (see LibraryChoiceActivity),
+      // so both local and OPDS browsing land back on the same Library tile.
       initialMenuItem = HomeMenuItem::FILE_BROWSER;
     } else if (activityName == "RecentBooks") {
       initialMenuItem = HomeMenuItem::RECENTS;
-    } else if (activityName == "OpdsBookBrowser") {
-      initialMenuItem = HomeMenuItem::OPDS_BROWSER;
     } else if (activityName == "TinyRdrWebServer") {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "Settings") {
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
+    } else if (activityName == "ToolsFolder") {
+      initialMenuItem = HomeMenuItem::TOOLS;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem));

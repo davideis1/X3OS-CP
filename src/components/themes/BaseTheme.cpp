@@ -691,6 +691,114 @@ void BaseTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount
   }
 }
 
+namespace {
+// A square with corner radius == half its side is a circle. Reuses the public rounded-rect
+// primitives instead of GfxRenderer's private per-corner arc helper.
+void fillCircle(const GfxRenderer& renderer, int cx, int cy, int radius, bool black = true) {
+  renderer.fillRoundedRect(cx - radius, cy - radius, radius * 2, radius * 2, radius,
+                           black ? Color::Black : Color::White);
+}
+void drawCircleOutline(const GfxRenderer& renderer, int cx, int cy, int radius, int lineWidth, bool state) {
+  renderer.drawRoundedRect(cx - radius, cy - radius, radius * 2, radius * 2, lineWidth, radius, state);
+}
+}  // namespace
+
+void BaseTheme::drawGridIconGlyph(const GfxRenderer& renderer, UIIcon icon, Rect box, bool inverted) {
+  const bool black = !inverted;
+  const int cx = box.x + box.width / 2;
+  const int cy = box.y + box.height / 2;
+  const int w = box.width;
+  const int h = box.height;
+
+  switch (icon) {
+    case UIIcon::Library:
+      renderer.drawRect(box.x + w / 6, box.y + h / 6, w * 2 / 3, h * 2 / 3, 2, black);
+      renderer.drawLine(cx, box.y + h / 6, cx, box.y + h * 5 / 6, 2, black);
+      break;
+    case UIIcon::Tools:
+      renderer.drawLine(box.x + w / 4, box.y + h / 4, box.x + w * 3 / 4, box.y + h * 3 / 4, 3, black);
+      renderer.drawLine(box.x + w * 3 / 4, box.y + h / 4, box.x + w / 4, box.y + h * 3 / 4, 3, black);
+      break;
+    case UIIcon::Games: {
+      const int sq = w / 4;
+      renderer.fillRect(box.x + w / 6, box.y + h / 6, sq, sq, black);
+      renderer.fillRect(cx + w / 12, box.y + h / 6, sq, sq, black);
+      renderer.fillRect(box.x + w / 6, cy + h / 12, sq, sq, black);
+      renderer.fillRect(cx + w / 12, cy + h / 12, sq, sq, black);
+      break;
+    }
+    case UIIcon::Wifi:
+      drawCircleOutline(renderer, cx, cy, w * 2 / 5, 2, black);
+      drawCircleOutline(renderer, cx, cy, w / 5, 2, black);
+      fillCircle(renderer, cx, cy, 2, black);
+      break;
+    case UIIcon::Todo:
+      renderer.drawRect(box.x + w / 5, box.y + h / 5, w * 3 / 5, h * 3 / 5, 2, black);
+      renderer.drawLine(box.x + w / 3, cy, cx - 2, box.y + h * 2 / 3, 2, black);
+      renderer.drawLine(cx - 2, box.y + h * 2 / 3, box.x + w * 4 / 5, box.y + h / 3, 2, black);
+      break;
+    case UIIcon::Notes:
+      renderer.drawLine(box.x + w / 5, box.y + h * 2 / 5, box.x + w * 4 / 5, box.y + h * 2 / 5, 2, black);
+      renderer.drawLine(box.x + w / 5, cy, box.x + w * 4 / 5, cy, 2, black);
+      renderer.drawLine(box.x + w / 5, box.y + h * 3 / 5, box.x + w * 3 / 5, box.y + h * 3 / 5, 2, black);
+      break;
+    case UIIcon::Weather:
+      fillCircle(renderer, cx, cy, w / 4, black);
+      renderer.drawLine(cx, box.y, cx, box.y + h / 6, 2, black);
+      renderer.drawLine(cx, box.y + h * 5 / 6, cx, box.y + h, 2, black);
+      renderer.drawLine(box.x, cy, box.x + w / 6, cy, 2, black);
+      renderer.drawLine(box.x + w * 5 / 6, cy, box.x + w, cy, 2, black);
+      break;
+    case UIIcon::Settings:
+      drawCircleOutline(renderer, cx, cy, w * 2 / 5, 2, black);
+      fillCircle(renderer, cx, cy, w / 8, black);
+      renderer.drawLine(cx, box.y, cx, box.y + h / 8, 2, black);
+      renderer.drawLine(cx, box.y + h * 7 / 8, cx, box.y + h, 2, black);
+      renderer.drawLine(box.x, cy, box.x + w / 8, cy, 2, black);
+      renderer.drawLine(box.x + w * 7 / 8, cy, box.x + w, cy, 2, black);
+      break;
+    default:
+      // Unmapped icons (e.g. Folder/Book/File/Recent/Transfer/Hotspot/Bookmark/Text/Image/None) fall back
+      // to a plain placeholder square so a future tile never renders blank.
+      renderer.drawRect(box.x + w / 4, box.y + h / 4, w / 2, h / 2, 2, black);
+      break;
+  }
+}
+
+void BaseTheme::drawIconGrid(const GfxRenderer& renderer, Rect rect, int columns, const std::vector<GridTile>& tiles,
+                             int selectedIndex) const {
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  if (columns <= 0 || tiles.empty()) return;
+  const int rows = (static_cast<int>(tiles.size()) + columns - 1) / columns;
+
+  const int labelHeight = renderer.getLineHeight(UI_10_FONT_ID);
+  const int cellWidth = (rect.width - (columns - 1) * metrics.gridColumnSpacing) / columns;
+  const int cellHeight = (rect.height - (rows - 1) * metrics.gridRowSpacing) / rows;
+  const int tileSize = std::min(cellWidth, cellHeight - metrics.gridLabelGap - labelHeight);
+
+  for (int i = 0; i < static_cast<int>(tiles.size()); ++i) {
+    const int col = i % columns;
+    const int row = i / columns;
+    const int cellX = rect.x + col * (cellWidth + metrics.gridColumnSpacing);
+    const int cellY = rect.y + row * (cellHeight + metrics.gridRowSpacing);
+    const int tileX = cellX + (cellWidth - tileSize) / 2;
+    const int tileY = cellY;
+
+    const bool selected = selectedIndex == i;
+    if (selected) {
+      renderer.fillRoundedRect(tileX, tileY, tileSize, tileSize, metrics.gridTileCornerRadius, Color::Black);
+    } else {
+      renderer.drawRoundedRect(tileX, tileY, tileSize, tileSize, 2, metrics.gridTileCornerRadius, true);
+    }
+    drawGridIconGlyph(renderer, tiles[i].icon, Rect{tileX, tileY, tileSize, tileSize}, selected);
+
+    const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, tiles[i].label);
+    const int textX = cellX + (cellWidth - textWidth) / 2;
+    const int textY = tileY + tileSize + metrics.gridLabelGap;
+    renderer.drawText(UI_10_FONT_ID, textX, textY, tiles[i].label, true);
+  }
+}
+
 Rect BaseTheme::drawPopup(const GfxRenderer& renderer, const char* message) const {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const int marginX = metrics.popupMarginX;

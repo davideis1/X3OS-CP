@@ -12,23 +12,41 @@
 #include <cstring>
 #include <vector>
 
+#include "MappedInputManager.h"
+#include "RecentBooksStore.h"
 #include "TinyRdrSettings.h"
 #include "TinyRdrState.h"
-#include "MappedInputManager.h"
-#include "OpdsServerStore.h"
-#include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/GridNavigator.h"
 
-int HomeActivity::getMenuItemCount() const {
-  int count = 4;  // File Browser, Recents, File transfer, Settings
-  if (!recentBooks.empty()) {
-    count += recentBooks.size();
+namespace {
+struct GridEntry {
+  HomeMenuItem item;
+  UIIcon icon;
+  StrId label;
+};
+// Fixed grid order (index == position in the 4x2 grid, row-major). OPDS access lives inside the
+// Library tile's chooser (LibraryChoiceActivity) instead of a separate top-level slot.
+constexpr GridEntry kGrid[HomeActivity::gridItemCount] = {
+    {HomeMenuItem::FILE_BROWSER, UIIcon::Library, StrId::STR_LIBRARY},
+    {HomeMenuItem::TOOLS, UIIcon::Tools, StrId::STR_TOOLS},
+    {HomeMenuItem::GAMES, UIIcon::Games, StrId::STR_GAMES},
+    {HomeMenuItem::FILE_TRANSFER, UIIcon::Wifi, StrId::STR_CONNECT},
+    {HomeMenuItem::TODO, UIIcon::Todo, StrId::STR_TODO},
+    {HomeMenuItem::NOTES, UIIcon::Notes, StrId::STR_NOTES},
+    {HomeMenuItem::WEATHER, UIIcon::Weather, StrId::STR_WEATHER},
+    {HomeMenuItem::SETTINGS_MENU, UIIcon::Settings, StrId::STR_SETTINGS_TITLE},
+};
+}  // namespace
+
+HomeMenuItem HomeActivity::gridItemAt(int index) { return kGrid[index].item; }
+
+int HomeActivity::gridIndexFor(HomeMenuItem item) {
+  for (int i = 0; i < gridItemCount; ++i) {
+    if (kGrid[i].item == item) return i;
   }
-  if (hasOpdsServers) {
-    count++;
-  }
-  return count;
+  return -1;
 }
 
 void HomeActivity::loadRecentBooks(int maxBooks) {
@@ -111,13 +129,17 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
 void HomeActivity::onEnter() {
   Activity::onEnter();
 
-  hasOpdsServers = OPDS_STORE.hasServers();
-
   const auto& metrics = UITheme::getInstance().getMetrics();
   loadRecentBooks(metrics.homeRecentBooksCount);
 
-  const auto base = static_cast<int>(recentBooks.size());
-  selectorIndex = initialMenuItem == HomeMenuItem::NONE ? 0 : base + menuItemToIndex(initialMenuItem, hasOpdsServers);
+  if (initialMenuItem == HomeMenuItem::RECENTS) {
+    selectorIndex = dockCount() - 1;
+  } else if (initialMenuItem == HomeMenuItem::NONE) {
+    selectorIndex = 0;
+  } else {
+    const int gi = gridIndexFor(initialMenuItem);
+    selectorIndex = gi >= 0 ? dockCount() + gi : 0;
+  }
 
   // Trigger first update
   requestUpdate();
@@ -167,43 +189,96 @@ void HomeActivity::freeCoverBuffer() {
 }
 
 void HomeActivity::loop() {
-  const int menuCount = getMenuItemCount();
+  using Button = MappedInputManager::Button;
 
-  buttonNavigator.onNext([this, menuCount] {
-    selectorIndex = ButtonNavigator::nextIndex(selectorIndex, menuCount);
-    requestUpdate();
-  });
-
-  buttonNavigator.onPrevious([this, menuCount] {
-    selectorIndex = ButtonNavigator::previousIndex(selectorIndex, menuCount);
-    requestUpdate();
-  });
-
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (selectorIndex < recentBooks.size()) {
-      onSelectBook(recentBooks[selectorIndex].path);
+  buttonNavigator.onPressAndContinuous({Button::Left}, [this] {
+    if (isInDock()) {
+      selectorIndex = (selectorIndex - 1 + dockCount()) % dockCount();
     } else {
-      const int menuIndex = selectorIndex - static_cast<int>(recentBooks.size());
-      switch (indexToMenuItem(menuIndex, hasOpdsServers)) {
-        case HomeMenuItem::FILE_BROWSER:
-          onFileBrowserOpen();
-          break;
-        case HomeMenuItem::RECENTS:
-          onRecentsOpen();
-          break;
-        case HomeMenuItem::OPDS_BROWSER:
-          onOpdsBrowserOpen();
-          break;
-        case HomeMenuItem::FILE_TRANSFER:
-          onFileTransferOpen();
-          break;
-        case HomeMenuItem::SETTINGS_MENU:
-          onSettingsOpen();
-          break;
-        default:
-          break;
-      }
+      int gi = gridIndex();
+      GridNavigator::moveLeft(gi, gridColumns, gridItemCount);
+      selectorIndex = dockCount() + gi;
     }
+    requestUpdate();
+  });
+
+  buttonNavigator.onPressAndContinuous({Button::Right}, [this] {
+    if (isInDock()) {
+      selectorIndex = (selectorIndex + 1) % dockCount();
+    } else {
+      int gi = gridIndex();
+      GridNavigator::moveRight(gi, gridColumns, gridItemCount);
+      selectorIndex = dockCount() + gi;
+    }
+    requestUpdate();
+  });
+
+  buttonNavigator.onPressAndContinuous({Button::Up}, [this] {
+    if (!isInDock()) {
+      const int gi = gridIndex();
+      if (gi < gridColumns) {
+        selectorIndex = 0;  // Top row of the grid backs out to the dock row
+      } else {
+        int newGi = gi;
+        GridNavigator::moveUp(newGi, gridColumns, gridItemCount);
+        selectorIndex = dockCount() + newGi;
+      }
+      requestUpdate();
+    }
+  });
+
+  buttonNavigator.onPressAndContinuous({Button::Down}, [this] {
+    if (isInDock()) {
+      selectorIndex = dockCount();  // Enter the grid at column 0, row 0
+    } else {
+      int gi = gridIndex();
+      GridNavigator::moveDown(gi, gridColumns, gridItemCount);
+      selectorIndex = dockCount() + gi;
+    }
+    requestUpdate();
+  });
+
+  if (mappedInput.wasReleased(Button::Confirm)) {
+    if (isInDock()) {
+      if (dockCount() == 2 && selectorIndex == 0) {
+        onSelectBook(recentBooks[0].path);
+      } else {
+        activityManager.goToRecentBooks();
+      }
+    } else {
+      onGridConfirm(gridItemAt(gridIndex()));
+    }
+  }
+}
+
+void HomeActivity::onGridConfirm(HomeMenuItem item) {
+  switch (item) {
+    case HomeMenuItem::FILE_BROWSER:
+      activityManager.goToLibrary();
+      break;
+    case HomeMenuItem::TOOLS:
+      activityManager.goToTools();
+      break;
+    case HomeMenuItem::GAMES:
+      activityManager.goToComingSoon(StrId::STR_GAMES);
+      break;
+    case HomeMenuItem::FILE_TRANSFER:
+      activityManager.goToFileTransfer();
+      break;
+    case HomeMenuItem::TODO:
+      activityManager.goToComingSoon(StrId::STR_TODO);
+      break;
+    case HomeMenuItem::NOTES:
+      activityManager.goToComingSoon(StrId::STR_NOTES);
+      break;
+    case HomeMenuItem::WEATHER:
+      activityManager.goToComingSoon(StrId::STR_WEATHER);
+      break;
+    case HomeMenuItem::SETTINGS_MENU:
+      activityManager.goToSettings();
+      break;
+    default:
+      break;
   }
 }
 
@@ -215,8 +290,7 @@ void HomeActivity::render(RenderLock&&) {
   renderer.clearScreen();
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding},
-                 metrics.homeContinueReadingInMenu && !recentBooks.empty() ? recentBooks[0].title.c_str() : nullptr);
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, nullptr);
 
   // Record the tile rect so storeCoverBuffer (called from the theme) knows
   // which sub-region of the framebuffer to snapshot. ~16 KB in Portrait
@@ -230,31 +304,30 @@ void HomeActivity::render(RenderLock&&) {
                           recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
                           std::bind(&HomeActivity::storeCoverBuffer, this));
 
-  // Build menu items dynamically
-  std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_FILE_TRANSFER),
-                                        tr(STR_SETTINGS_TITLE)};
-  std::vector<UIIcon> menuIcons = {Folder, Recent, Transfer, Settings};
+  // "Recents" link: always the last dock slot (index dockCount() - 1).
+  const bool recentsSelected = isInDock() && selectorIndex == dockCount() - 1;
+  const int recentsY = metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.verticalSpacing;
+  const int sidePad = metrics.contentSidePadding;
+  const int recentsWidth = pageWidth - sidePad * 2;
+  if (recentsSelected) {
+    renderer.fillRect(sidePad, recentsY, recentsWidth, metrics.menuRowHeight);
+  } else {
+    renderer.drawRect(sidePad, recentsY, recentsWidth, metrics.menuRowHeight);
+  }
+  const int recentsLineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+  renderer.drawCenteredText(UI_10_FONT_ID, recentsY + (metrics.menuRowHeight - recentsLineHeight) / 2,
+                            tr(STR_RECENTS_LINK), !recentsSelected);
 
-  if (hasOpdsServers) {
-    menuItems.insert(menuItems.begin() + 2, tr(STR_OPDS_BROWSER));
-    menuIcons.insert(menuIcons.begin() + 2, Library);
+  std::vector<GridTile> tiles;
+  tiles.reserve(gridItemCount);
+  for (const auto& entry : kGrid) {
+    tiles.push_back(GridTile{entry.icon, I18N.get(entry.label)});
   }
 
-  if (metrics.homeContinueReadingInMenu && !recentBooks.empty()) {
-    // Insert Continue Reading at the top if enabled in theme
-    menuItems.insert(menuItems.begin(), tr(STR_CONTINUE_READING));
-    menuIcons.insert(menuIcons.begin(), Book);
-  }
-
-  GUI.drawButtonMenu(
-      renderer,
-      Rect{0, metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.homeMenuTopOffset, pageWidth,
-           pageHeight - (metrics.headerHeight + metrics.homeTopPadding + metrics.verticalSpacing +
-                         metrics.homeMenuTopOffset + metrics.buttonHintsHeight)},
-      static_cast<int>(menuItems.size()),
-      metrics.homeContinueReadingInMenu ? selectorIndex : selectorIndex - recentBooks.size(),
-      [&menuItems](int index) { return std::string(menuItems[index]); },
-      [&menuIcons](int index) { return menuIcons[index]; });
+  const int gridY = recentsY + metrics.menuRowHeight + metrics.homeMenuTopOffset;
+  const int gridHeight = pageHeight - gridY - metrics.buttonHintsHeight - metrics.verticalSpacing;
+  GUI.drawIconGrid(renderer, Rect{sidePad, gridY, pageWidth - sidePad * 2, gridHeight}, gridColumns, tiles,
+                   isInDock() ? -1 : gridIndex());
 
   const auto labels = mappedInput.mapLabels("", tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
@@ -271,13 +344,3 @@ void HomeActivity::render(RenderLock&&) {
 }
 
 void HomeActivity::onSelectBook(const std::string& path) { activityManager.goToReader(path); }
-
-void HomeActivity::onFileBrowserOpen() { activityManager.goToFileBrowser(); }
-
-void HomeActivity::onRecentsOpen() { activityManager.goToRecentBooks(); }
-
-void HomeActivity::onSettingsOpen() { activityManager.goToSettings(); }
-
-void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
-
-void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }

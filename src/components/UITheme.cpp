@@ -2,52 +2,25 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
-#include <Logging.h>
 
 #include <memory>
 
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "components/themes/BaseTheme.h"
-#include "components/themes/lyra/Lyra3CoversTheme.h"
-#include "components/themes/lyra/LyraTheme.h"
-#include "components/themes/roundedraff/RoundedRaffTheme.h"
 
 UITheme UITheme::instance;
 
+// BaseTheme ("Classic") is the only theme; TinyRdrSettings::uiTheme is left in place (unused) so
+// the positional binary settings file format doesn't shift for existing saved settings.
 UITheme::UITheme() {
-  auto themeType = static_cast<TinyRdrSettings::UI_THEME>(SETTINGS.uiTheme);
-  setTheme(themeType);
+  currentTheme = std::make_unique<BaseTheme>();
+  currentMetrics = &BaseMetrics::values;
 }
 
 void UITheme::reload() {
-  auto themeType = static_cast<TinyRdrSettings::UI_THEME>(SETTINGS.uiTheme);
-  setTheme(themeType);
-}
-
-void UITheme::setTheme(TinyRdrSettings::UI_THEME type) {
-  switch (type) {
-    case TinyRdrSettings::UI_THEME::CLASSIC:
-      LOG_DBG("UI", "Using Classic theme");
-      currentTheme = std::make_unique<BaseTheme>();
-      currentMetrics = &BaseMetrics::values;
-      break;
-    case TinyRdrSettings::UI_THEME::LYRA:
-      LOG_DBG("UI", "Using Lyra theme");
-      currentTheme = std::make_unique<LyraTheme>();
-      currentMetrics = &LyraMetrics::values;
-      break;
-    case TinyRdrSettings::UI_THEME::ROUNDEDRAFF:
-      LOG_DBG("UI", "Using RoundedRaff theme");
-      currentTheme = std::make_unique<RoundedRaffTheme>();
-      currentMetrics = &RoundedRaffMetrics::values;
-      break;
-    case TinyRdrSettings::UI_THEME::LYRA_3_COVERS:
-      LOG_DBG("UI", "Using Lyra 3 Covers theme");
-      currentTheme = std::make_unique<Lyra3CoversTheme>();
-      currentMetrics = &Lyra3CoversMetrics::values;
-      break;
-  }
+  currentTheme = std::make_unique<BaseTheme>();
+  currentMetrics = &BaseMetrics::values;
 }
 
 int UITheme::getNumberOfItemsPerPage(const GfxRenderer& renderer, bool hasHeader, bool hasTabBar, bool hasButtonHints,
@@ -131,20 +104,18 @@ int UITheme::getStatusBarHeight() {
   const ThemeMetrics& metrics = UITheme::getInstance().getMetrics();
 
   // Add status bar margin
-  const bool showStatusBar =
-      SETTINGS.statusBarChapterPageCount || SETTINGS.statusBarBookProgressPercentage ||
-      SETTINGS.statusBarTitle != TinyRdrSettings::STATUS_BAR_TITLE::HIDE_TITLE || SETTINGS.statusBarBattery ||
-      SETTINGS.statusBarClock != TinyRdrSettings::STATUS_BAR_CLOCK_MODE::STATUS_BAR_CLOCK_HIDE;
-  const bool showProgressBar =
-      SETTINGS.statusBarProgressBar != TinyRdrSettings::STATUS_BAR_PROGRESS_BAR::HIDE_PROGRESS;
+  const bool showStatusBar = SETTINGS.statusBarChapterPageCount || SETTINGS.statusBarBookProgressPercentage ||
+                             SETTINGS.statusBarTitle != TinyRdrSettings::STATUS_BAR_TITLE::HIDE_TITLE ||
+                             SETTINGS.statusBarBattery ||
+                             SETTINGS.statusBarClock != TinyRdrSettings::STATUS_BAR_CLOCK_MODE::STATUS_BAR_CLOCK_HIDE;
+  const bool showProgressBar = SETTINGS.statusBarProgressBar != TinyRdrSettings::STATUS_BAR_PROGRESS_BAR::HIDE_PROGRESS;
   return (showStatusBar ? (metrics.statusBarVerticalMargin) : 0) +
          (showProgressBar ? (((SETTINGS.statusBarProgressBarThickness + 1) * 2) + metrics.progressBarMarginTop) : 0);
 }
 
 int UITheme::getProgressBarHeight() {
   const ThemeMetrics& metrics = UITheme::getInstance().getMetrics();
-  const bool showProgressBar =
-      SETTINGS.statusBarProgressBar != TinyRdrSettings::STATUS_BAR_PROGRESS_BAR::HIDE_PROGRESS;
+  const bool showProgressBar = SETTINGS.statusBarProgressBar != TinyRdrSettings::STATUS_BAR_PROGRESS_BAR::HIDE_PROGRESS;
   return (showProgressBar ? (((SETTINGS.statusBarProgressBarThickness + 1) * 2) + metrics.progressBarMarginTop) : 0);
 }
 

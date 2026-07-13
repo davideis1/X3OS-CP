@@ -10,8 +10,8 @@
 #include <iterator>
 #include <vector>
 
-#include "TinyRdrSettings.h"
 #include "KOReaderCredentialStore.h"
+#include "TinyRdrSettings.h"
 #include "activities/settings/SettingsActivity.h"
 
 // Build the font family setting dynamically. When registry is non-null, SD card fonts
@@ -122,10 +122,6 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
             StrId::STR_REFRESH_FREQ, &TinyRdrSettings::refreshFrequency,
             {StrId::STR_PAGES_1, StrId::STR_PAGES_5, StrId::STR_PAGES_10, StrId::STR_PAGES_15, StrId::STR_PAGES_30},
             "refreshFrequency", StrId::STR_CAT_DISPLAY),
-        SettingInfo::Enum(StrId::STR_UI_THEME, &TinyRdrSettings::uiTheme,
-                          {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
-                           StrId::STR_THEME_ROUNDEDRAFF},
-                          "uiTheme", StrId::STR_CAT_DISPLAY),
         SettingInfo::Toggle(StrId::STR_SUNLIGHT_FADING_FIX, &TinyRdrSettings::fadingFix, "fadingFix",
                             StrId::STR_CAT_DISPLAY),
 
@@ -155,8 +151,8 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
             StrId::STR_ORIENTATION, &TinyRdrSettings::orientation,
             {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_ORIENTATION_INVERTED, StrId::STR_LANDSCAPE_CCW},
             "orientation", StrId::STR_CAT_READER),
-        SettingInfo::Toggle(StrId::STR_EXTRA_SPACING, &TinyRdrSettings::extraParagraphSpacing,
-                            "extraParagraphSpacing", StrId::STR_CAT_READER),
+        SettingInfo::Toggle(StrId::STR_EXTRA_SPACING, &TinyRdrSettings::extraParagraphSpacing, "extraParagraphSpacing",
+                            StrId::STR_CAT_READER),
         SettingInfo::Toggle(StrId::STR_TEXT_AA, &TinyRdrSettings::textAntiAliasing, "textAntiAliasing",
                             StrId::STR_CAT_READER),
         SettingInfo::Enum(StrId::STR_IMAGES, &TinyRdrSettings::imageRendering,
@@ -183,10 +179,9 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
                             "pwrBtnFootnoteBack", StrId::STR_CAT_CONTROLS),
 
         // --- System ---
-        SettingInfo::Value(
-            StrId::STR_TIME_TO_SLEEP, &TinyRdrSettings::sleepTimeoutMinutes,
-            {TinyRdrSettings::MIN_SLEEP_TIMEOUT_MINUTES, TinyRdrSettings::MAX_SLEEP_TIMEOUT_MINUTES, 1},
-            "sleepTimeoutMinutes", StrId::STR_CAT_SYSTEM),
+        SettingInfo::Value(StrId::STR_TIME_TO_SLEEP, &TinyRdrSettings::sleepTimeoutMinutes,
+                           {TinyRdrSettings::MIN_SLEEP_TIMEOUT_MINUTES, TinyRdrSettings::MAX_SLEEP_TIMEOUT_MINUTES, 1},
+                           "sleepTimeoutMinutes", StrId::STR_CAT_SYSTEM),
         SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &TinyRdrSettings::showHiddenFiles, "showHiddenFiles",
                             StrId::STR_CAT_SYSTEM),
         SettingInfo::Toggle(StrId::STR_REMOVE_READ_FROM_RECENTS, &TinyRdrSettings::removeReadBooksFromRecents,
