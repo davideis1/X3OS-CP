@@ -20,9 +20,11 @@
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
+#include "util/CalculatorActivity.h"
 #include "util/ComingSoonActivity.h"
 #include "util/DiagnosticsActivity.h"
 #include "util/FullScreenMessageActivity.h"
+#include "util/UnitConverterActivity.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -220,6 +222,12 @@ void ActivityManager::goToDiagnostics() {
 
 void ActivityManager::goToTodo() { replaceActivity(std::make_unique<TodoActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToCalculator() { replaceActivity(std::make_unique<CalculatorActivity>(renderer, mappedInput)); }
+
+void ActivityManager::goToUnitConverter() {
+  replaceActivity(std::make_unique<UnitConverterActivity>(renderer, mappedInput));
+}
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -248,7 +256,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "Settings") {
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
-    } else if (activityName == "ToolsFolder" || activityName == "Diagnostics") {
+    } else if (activityName == "ToolsFolder" || activityName == "Diagnostics" || activityName == "Calculator" ||
+               activityName == "UnitConverter") {
       initialMenuItem = HomeMenuItem::TOOLS;
     } else if (activityName == "Todo") {
       initialMenuItem = HomeMenuItem::TODO;

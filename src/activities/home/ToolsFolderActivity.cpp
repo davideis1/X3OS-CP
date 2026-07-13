@@ -37,10 +37,19 @@ void ToolsFolderActivity::loop() {
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     const auto& tool = kTools[selectedIndex];
-    if (tool.id == ToolId::DIAGNOSTICS) {
-      activityManager.goToDiagnostics();
-    } else {
-      activityManager.goToComingSoon(tool.label);
+    switch (tool.id) {
+      case ToolId::DIAGNOSTICS:
+        activityManager.goToDiagnostics();
+        break;
+      case ToolId::CALCULATOR:
+        activityManager.goToCalculator();
+        break;
+      case ToolId::CONVERT:
+        activityManager.goToUnitConverter();
+        break;
+      default:
+        activityManager.goToComingSoon(tool.label);
+        break;
     }
     return;
   }
