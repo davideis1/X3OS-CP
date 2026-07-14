@@ -427,13 +427,19 @@ void KeyboardEntryActivity::render(RenderLock&&) {
     if (textWidth <= maxLineWidth) {
       const bool isLastLine = (lineEndIdx == static_cast<int>(displayText.length()));
       bool isCursorLine = false;
+      // cursorPos is size_t and lineStartIdx is int; the entry condition below already ensures
+      // cursorPos >= lineStartIdx, but clamp defensively so a future edit to that guard can't turn
+      // this into an unsigned underflow (a multi-megabyte string(len, '*') alloc/abort). Declared
+      // at this scope since it's reused below when re-drawing the cursor line's password mask.
+      const size_t beforeCursorLen =
+          cursorPos > static_cast<size_t>(lineStartIdx) ? cursorPos - static_cast<size_t>(lineStartIdx) : 0;
       if (!cursorDrawn && cursorPos >= lineStartIdx &&
           (isLastLine ? cursorPos <= lineEndIdx : cursorPos < lineEndIdx)) {
         std::string beforeCursor;
         if (isPassword && !passwordVisible && cursorMode) {
-          beforeCursor = std::string(cursorPos - lineStartIdx, '*');
+          beforeCursor = std::string(beforeCursorLen, '*');
         } else {
-          beforeCursor = displayText.substr(lineStartIdx, cursorPos - lineStartIdx);
+          beforeCursor = displayText.substr(lineStartIdx, beforeCursorLen);
         }
         int beforeWidth = renderer.getTextAdvanceX(UI_12_FONT_ID, beforeCursor.c_str(), EpdFontFamily::REGULAR);
         int kernOffset = 0;
@@ -460,7 +466,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
         // Draw text in 3 parts to avoid block cursor overflowing onto next char.
         // displayText uses '*' for all chars; actual char may be wider than '*'.
         // Part 1: chars before cursor position
-        const std::string part1 = displayText.substr(lineStartIdx, cursorPos - lineStartIdx);
+        const std::string part1 = displayText.substr(lineStartIdx, beforeCursorLen);
         renderer.drawText(UI_12_FONT_ID, lineStartX, inputStartY + inputHeight, part1.c_str());
         // Part 2: skip cursor slot (block + actual char drawn later)
         // Part 3: chars after cursor position (skip char under cursor), starting at cursorPixelX + cursorCharWidth

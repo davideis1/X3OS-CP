@@ -329,8 +329,13 @@ void HomeActivity::render(RenderLock&&) {
   GUI.drawIconGrid(renderer, Rect{sidePad, gridY, pageWidth - sidePad * 2, gridHeight}, gridColumns, tiles,
                    isInDock() ? -1 : gridIndex());
 
-  const auto labels = mappedInput.mapLabels("", tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  // Front Left/Right move within a row/grid column; the physical side buttons (Up/Down) move
+  // between rows — leftover from the old flat-list Home menu, this used to pass Up/Down into the
+  // front Left/Right hint slots since that menu only had vertical navigation. The grid uses all
+  // four directions now, so front hints show Left/Right and the side hints show Up/Down.
+  const auto labels = mappedInput.mapLabels("", tr(STR_SELECT), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  GUI.drawSideButtonHints(renderer, tr(STR_DIR_UP), tr(STR_DIR_DOWN));
 
   renderer.displayBuffer();
 

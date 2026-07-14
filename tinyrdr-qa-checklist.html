@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TinyRdr Post-Rename QA Checklist</title>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --card: #ffffff;
+    --ink: #1c1c1c;
+    --muted: #6b6b6b;
+    --border: #e0ddd5;
+    --pass: #2f7a3d;
+    --fail: #b3402f;
+    --skip: #8a8a8a;
+    --accent: #2b2b2b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding: 0 0 120px 0;
+  }
+  header {
+    background: var(--accent);
+    color: #fff;
+    padding: 28px 24px 22px;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; color: #d8d8d8; font-size: 14px; max-width: 760px; line-height: 1.5; }
+  main {
+    max-width: 800px;
+    margin: 24px auto;
+    padding: 0 16px;
+  }
+  .progress-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    padding: 12px 0;
+  }
+  .progress-bar-outer {
+    background: #e6e3da;
+    border-radius: 6px;
+    height: 10px;
+    overflow: hidden;
+  }
+  .progress-bar-inner {
+    background: var(--accent);
+    height: 100%;
+    width: 0%;
+    transition: width .2s ease;
+  }
+  .progress-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  section.group {
+    margin-bottom: 28px;
+  }
+  section.group > h2 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .test-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .test-card .title {
+    font-weight: 600;
+    font-size: 14.5px;
+    margin-bottom: 4px;
+  }
+  .test-card .expected {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    line-height: 1.45;
+  }
+  .test-card .expected code {
+    background: #f0efe9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .choices {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .choices label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .choices input { display: none; }
+  .choices label.pass-opt.checked { background: var(--pass); color: #fff; border-color: var(--pass); }
+  .choices label.fail-opt.checked { background: var(--fail); color: #fff; border-color: var(--fail); }
+  .choices label.skip-opt.checked { background: var(--skip); color: #fff; border-color: var(--skip); }
+  textarea.notes {
+    width: 100%;
+    min-height: 42px;
+    font-family: inherit;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    resize: vertical;
+  }
+  .footer-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  #genBtn { background: var(--accent); color: #fff; }
+  #copyBtn { background: #fff; color: var(--accent); border: 1px solid var(--border); }
+  #downloadBtn { background: #fff; color: var(--accent); border: 1px solid var(--border); }
+  #reportWrap {
+    max-width: 800px;
+    margin: 0 auto 40px;
+    padding: 0 16px;
+    display: none;
+  }
+  #reportWrap.show { display: block; }
+  #reportWrap h2 { font-size: 15px; color: var(--muted); }
+  #reportBox {
+    width: 100%;
+    min-height: 320px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    white-space: pre;
+  }
+  .copied-msg {
+    font-size: 12px;
+    color: var(--pass);
+    margin-left: 4px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TinyRdr — Post-Rename QA Checklist</h1>
+  <p>This firmware just went through a full CrossPoint → TinyRdr rename (class names, mDNS hostname, Wi-Fi SSID,
+  SD-card cache folder, KOReader device ID, version string, and all UI text). Almost none of this should change
+  functional behavior — the point of this pass is to confirm the rename didn't silently break anything or leave
+  stray old branding on screen. Go through each item on your device, mark it, and add a short note on anything
+  that fails. When you're done, hit "Generate Report" and paste the output back into the chat.</p>
+</header>
+
+<main>
+  <div class="progress-wrap">
+    <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0 tests marked</div>
+  </div>
+
+  <div id="testContainer"></div>
+</main>
+
+<div id="reportWrap">
+  <h2>Report (copy this back into the chat)</h2>
+  <textarea id="reportBox" readonly></textarea>
+</div>
+
+<div class="footer-bar">
+  <button id="genBtn">Generate Report</button>
+  <button id="copyBtn" style="display:none;">Copy Report</button>
+  <span class="copied-msg" id="copiedMsg">Copied!</span>
+  <button id="downloadBtn" style="display:none;">Download .md</button>
+</div>
+
+<script>
+const DATA = [
+  { group: "Boot / Sleep Screen", items: [
+    { id: "boot-text", title: "Boot screen branding", expected: "On power-on, the boot screen shows \"TinyRdr\" text, not \"CrossPoint\"." },
+    { id: "sleep-text", title: "Sleep screen branding (Dark mode)", expected: "Put the device to sleep with the default \"Dark\" sleep screen. It should show the TinyRdr logo/text, not CrossPoint." },
+  ]},
+  { group: "Settings", items: [
+    { id: "settings-version", title: "Version string in Settings header", expected: "Open Settings. The version string shown next to the title should not contain the word \"CrossPoint\" anywhere." },
+    { id: "settings-tabs", title: "All 4 settings tabs load", expected: "Display, Reader, Controls, and System tabs all open without freezing or crashing." },
+    { id: "settings-persist", title: "A changed setting persists after reboot", expected: "Change something (e.g. font size), power off/on, confirm it's still changed." },
+  ]},
+  { group: "Wi-Fi / Networking", items: [
+    { id: "wifi-ap-ssid", title: "Hotspot SSID name", expected: "Start File Transfer → Create Hotspot. The broadcast network name should be \"TinyRdr\", not \"CrossPoint-Reader\"." },
+    { id: "wifi-router-hostname", title: "Router-visible hostname when joining Wi-Fi", expected: "Join an existing Wi-Fi network, then check your router's connected-devices list. Hostname should start with \"TinyRdr-\", not \"CrossPoint-Reader-\"." },
+    { id: "wifi-mdns", title: "mDNS address loads the web UI", expected: "With the device on your Wi-Fi, visit <code>http://tinyrdr.local/</code> from your computer/phone browser. It should load the device's web UI." },
+    { id: "wifi-ip", title: "Direct IP address loads the web UI", expected: "Visit the IP address shown on the device screen directly. Should load the same web UI as above." },
+  ]},
+  { group: "Web UI", items: [
+    { id: "web-home", title: "Web home/status page", expected: "The status page loads and shows a version string with no leftover \"CrossPoint\" text." },
+    { id: "web-files", title: "Web file manager", expected: "Browse folders, upload a small file, rename it, move it, then delete it — all should work as before." },
+    { id: "web-settings", title: "Web settings page", expected: "Open the settings page in browser, change one setting, confirm it applied on the device." },
+    { id: "web-fonts", title: "Web font manager", expected: "Fonts page loads and lists any installed SD-card fonts correctly." },
+  ]},
+  { group: "Calibre Wireless", items: [
+    { id: "calibre-start", title: "Calibre Wireless mode starts", expected: "File Transfer → Calibre Wireless starts and shows setup instructions on the device screen without crashing." },
+    { id: "calibre-send", title: "Sending a book from Calibre still works", expected: "Using your existing CrossPoint Calibre plugin (this hasn't been forked/renamed), send a book to the device by IP. It should arrive and appear in your library." },
+  ]},
+  { group: "KOReader Sync", items: [
+    { id: "koreader-open", title: "KOReader Sync settings screen opens", expected: "Settings → System → KOReader Sync opens without error." },
+    { id: "koreader-sync", title: "Sync push/pull still works", expected: "If you use KOReader sync, trigger a sync and confirm progress pushes/pulls correctly. Note: the device now reports itself under a new device ID, so your sync server may show it as a new/separate device the first time — that's expected, not a bug." },
+  ]},
+  { group: "SD Card Cache & Storage", items: [
+    { id: "cache-new-folder", title: "New cache folder created", expected: "Check the SD card on a computer: a new <code>/.tinyrdr</code> folder should exist. The old <code>/.crosspoint</code> folder may still be there too — that's expected (it's now orphaned/unused, safe to delete manually if you want)." },
+    { id: "cache-reopen-book", title: "Re-opening a previously-read book", expected: "Open a book you'd already read before this update. It's expected to take a moment longer than usual (re-parsing since the old cache is orphaned) but should NOT crash." },
+    { id: "cache-clear-setting", title: "\"Clear Reading Cache\" setting", expected: "Settings → System → Clear Reading Cache still runs successfully." },
+    { id: "cache-recents-empty", title: "Recent books / bookmarks after update", expected: "It's expected/OK if Recent Books and Bookmarks appear empty right after this update (state file moved to the new cache folder). Confirm it's not crashing, and that reading a book again re-populates Recents normally." },
+  ]},
+  { group: "OTA / Firmware Updates", items: [
+    { id: "ota-check", title: "\"Check for Updates\" doesn't crash", expected: "Settings → System → Check for Updates. It's expected to report against the upstream CrossPoint repo for now (this wasn't repointed) — just confirm it doesn't error out or crash." },
+  ]},
+  { group: "Fonts", items: [
+    { id: "font-download-screen", title: "Font download/manage screen opens", expected: "Settings → Reader → Manage Fonts opens and lists/downloads fonts from the (still-external) font repository without error." },
+  ]},
+  { group: "General Regression", items: [
+    { id: "gen-read", title: "Normal reading works", expected: "Open any EPUB, turn pages forward/back, jump to a chapter. Should behave exactly as before." },
+    { id: "gen-bookmarks", title: "Bookmarks add/remove", expected: "Add a bookmark in a book, then remove it. Should work normally." },
+    { id: "gen-orientation", title: "All 4 orientations render correctly", expected: "Cycle through Portrait, Landscape CW, Inverted, Landscape CCW in Settings → Reader → Orientation. Layout should look correct in all 4." },
+    { id: "gen-buttons", title: "Button remapping still works", expected: "Settings → Controls → Remap Front Buttons opens and lets you reassign a button." },
+    { id: "gen-stability", title: "No random crashes/reboots", expected: "Across all the above, the device didn't unexpectedly restart or freeze." },
+  ]},
+];
+
+const container = document.getElementById("testContainer");
+let totalTests = 0;
+
+DATA.forEach(group => {
+  const section = document.createElement("section");
+  section.className = "group";
+  const h2 = document.createElement("h2");
+  h2.textContent = group.group;
+  section.appendChild(h2);
+
+  group.items.forEach(item => {
+    totalTests++;
+    const card = document.createElement("div");
+    card.className = "test-card";
+    card.dataset.id = item.id;
+
+    const title = document.createElement("div");
+    title.className = "title";
+    title.textContent = item.title;
+    card.appendChild(title);
+
+    const expected = document.createElement("div");
+    expected.className = "expected";
+    expected.innerHTML = item.expected;
+    card.appendChild(expected);
+
+    const choices = document.createElement("div");
+    choices.className = "choices";
+    [["pass", "Pass"], ["fail", "Fail"], ["skip", "Skip / N/A"]].forEach(([val, label]) => {
+      const lbl = document.createElement("label");
+      lbl.className = val + "-opt";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = item.id;
+      input.value = val;
+      input.addEventListener("change", () => {
+        choices.querySelectorAll("label").forEach(l => l.classList.remove("checked"));
+        lbl.classList.add("checked");
+        updateProgress();
+      });
+      lbl.appendChild(input);
+      lbl.appendChild(document.createTextNode(label));
+      choices.appendChild(lbl);
+    });
+    card.appendChild(choices);
+
+    const notes = document.createElement("textarea");
+    notes.className = "notes";
+    notes.placeholder = "Optional notes (what you saw, steps to reproduce, etc.)";
+    notes.dataset.notesFor = item.id;
+    card.appendChild(notes);
+
+    section.appendChild(card);
+  });
+
+  container.appendChild(section);
+});
+
+function updateProgress() {
+  const marked = document.querySelectorAll('input[type="radio"]:checked').length;
+  document.getElementById("progressBar").style.width = (marked / totalTests * 100) + "%";
+  document.getElementById("progressLabel").textContent = marked + " / " + totalTests + " tests marked";
+}
+updateProgress();
+
+document.getElementById("genBtn").addEventListener("click", () => {
+  const lines = [];
+  lines.push("# TinyRdr Post-Rename QA Report");
+  lines.push("");
+  let passCount = 0, failCount = 0, skipCount = 0, unmarkedCount = 0;
+
+  DATA.forEach(group => {
+    lines.push("## " + group.group);
+    lines.push("");
+    group.items.forEach(item => {
+      const checked = document.querySelector('input[name="' + item.id + '"]:checked');
+      const notes = document.querySelector('textarea[data-notes-for="' + item.id + '"]').value.trim();
+      let status = "NOT MARKED";
+      if (checked) {
+        if (checked.value === "pass") { status = "PASS"; passCount++; }
+        else if (checked.value === "fail") { status = "FAIL"; failCount++; }
+        else { status = "SKIP"; skipCount++; }
+      } else {
+        unmarkedCount++;
+      }
+      lines.push("- **" + item.title + "**: " + status + (notes ? " — " + notes : ""));
+    });
+    lines.push("");
+  });
+
+  const summary = "Summary: " + passCount + " passed, " + failCount + " failed, " + skipCount +
+    " skipped, " + unmarkedCount + " not marked (of " + totalTests + " total).";
+  lines.splice(1, 0, summary, "");
+
+  const report = lines.join("\n");
+  const box = document.getElementById("reportBox");
+  box.value = report;
+  document.getElementById("reportWrap").classList.add("show");
+  document.getElementById("copyBtn").style.display = "inline-block";
+  document.getElementById("downloadBtn").style.display = "inline-block";
+  document.getElementById("reportWrap").scrollIntoView({ behavior: "smooth" });
+});
+
+document.getElementById("copyBtn").addEventListener("click", () => {
+  const box = document.getElementById("reportBox");
+  box.select();
+  navigator.clipboard.writeText(box.value).then(() => {
+    const msg = document.getElementById("copiedMsg");
+    msg.style.display = "inline";
+    setTimeout(() => { msg.style.display = "none"; }, 2000);
+  });
+});
+
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const box = document.getElementById("reportBox");
+  const blob = new Blob([box.value], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "tinyrdr-qa-report.md";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+
+</body>
+</html>

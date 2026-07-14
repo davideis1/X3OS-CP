@@ -20,7 +20,6 @@
 namespace {
 constexpr int homeMenuMargin = 20;
 constexpr int homeMarginTop = 30;
-constexpr int subtitleY = 738;
 constexpr int bookmarkStatusIconWidth = 16;
 constexpr int bookmarkStatusIconHeight = 14;
 constexpr int bookmarkStatusIconGap = 4;
@@ -377,6 +376,12 @@ void BaseTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* t
     auto truncatedSubtitle = renderer.truncatedText(
         SMALL_FONT_ID, subtitle, rect.width - BaseMetrics::values.contentSidePadding * 2, EpdFontFamily::REGULAR);
     int truncatedSubtitleWidth = renderer.getTextWidth(SMALL_FONT_ID, truncatedSubtitle.c_str());
+    // Placed just above the button-hint row rather than inside the header rect itself (there's no
+    // room for a second line at this header height) — computed from live metrics/screen height, not
+    // a hardcoded y, so it doesn't drift back into the button hints if either ever changes.
+    const auto& metrics = UITheme::getInstance().getMetrics();
+    const int subtitleY = renderer.getScreenHeight() - metrics.buttonHintsHeight - metrics.verticalSpacing -
+                          renderer.getLineHeight(SMALL_FONT_ID);
     renderer.drawText(SMALL_FONT_ID,
                       rect.x + rect.width - BaseMetrics::values.contentSidePadding - truncatedSubtitleWidth, subtitleY,
                       truncatedSubtitle.c_str(), true);
