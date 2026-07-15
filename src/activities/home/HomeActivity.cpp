@@ -260,7 +260,7 @@ void HomeActivity::onGridConfirm(HomeMenuItem item) {
       activityManager.goToTools();
       break;
     case HomeMenuItem::GAMES:
-      activityManager.goToComingSoon(StrId::STR_GAMES);
+      activityManager.goToGames();
       break;
     case HomeMenuItem::FILE_TRANSFER:
       activityManager.goToFileTransfer();

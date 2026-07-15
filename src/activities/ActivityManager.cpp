@@ -9,8 +9,10 @@
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
+#include "games/SudokuActivity.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
+#include "home/GamesListActivity.h"
 #include "home/HomeActivity.h"
 #include "home/LibraryChoiceActivity.h"
 #include "home/NotesListActivity.h"
@@ -231,6 +233,10 @@ void ActivityManager::goToUnitConverter() {
 
 void ActivityManager::goToNotes() { replaceActivity(std::make_unique<NotesListActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToGames() { replaceActivity(std::make_unique<GamesListActivity>(renderer, mappedInput)); }
+
+void ActivityManager::goToSudoku() { replaceActivity(std::make_unique<SudokuActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -266,6 +272,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::TODO;
     } else if (activityName == "NotesList") {
       initialMenuItem = HomeMenuItem::NOTES;
+    } else if (activityName == "GamesList" || activityName == "Sudoku") {
+      initialMenuItem = HomeMenuItem::GAMES;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem));

@@ -113,6 +113,8 @@ class ActivityManager {
   void goToCalculator();
   void goToUnitConverter();
   void goToNotes();
+  void goToGames();
+  void goToSudoku();
 
   // This will move current activity to stack instead of deleting it
   void pushActivity(std::unique_ptr<Activity>&& activity);
