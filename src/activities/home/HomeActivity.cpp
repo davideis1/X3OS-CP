@@ -269,7 +269,7 @@ void HomeActivity::onGridConfirm(HomeMenuItem item) {
       activityManager.goToTodo();
       break;
     case HomeMenuItem::NOTES:
-      activityManager.goToComingSoon(StrId::STR_NOTES);
+      activityManager.goToNotes();
       break;
     case HomeMenuItem::WEATHER:
       activityManager.goToComingSoon(StrId::STR_WEATHER);

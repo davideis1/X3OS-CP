@@ -13,6 +13,7 @@
 #include "home/FileBrowserActivity.h"
 #include "home/HomeActivity.h"
 #include "home/LibraryChoiceActivity.h"
+#include "home/NotesListActivity.h"
 #include "home/RecentBooksActivity.h"
 #include "home/TodoActivity.h"
 #include "home/ToolsFolderActivity.h"
@@ -228,6 +229,8 @@ void ActivityManager::goToUnitConverter() {
   replaceActivity(std::make_unique<UnitConverterActivity>(renderer, mappedInput));
 }
 
+void ActivityManager::goToNotes() { replaceActivity(std::make_unique<NotesListActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -261,6 +264,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::TOOLS;
     } else if (activityName == "Todo") {
       initialMenuItem = HomeMenuItem::TODO;
+    } else if (activityName == "NotesList") {
+      initialMenuItem = HomeMenuItem::NOTES;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem));
