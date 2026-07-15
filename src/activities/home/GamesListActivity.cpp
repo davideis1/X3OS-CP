@@ -27,7 +27,7 @@ void GamesListActivity::loop() {
     if (selectedIndex == 0) {
       activityManager.goToSudoku();
     } else {
-      activityManager.goToComingSoon(StrId::STR_KLONDIKE);
+      activityManager.goToKlondike();
     }
     return;
   }

@@ -9,6 +9,7 @@
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
+#include "games/KlondikeActivity.h"
 #include "games/SudokuActivity.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
@@ -237,6 +238,8 @@ void ActivityManager::goToGames() { replaceActivity(std::make_unique<GamesListAc
 
 void ActivityManager::goToSudoku() { replaceActivity(std::make_unique<SudokuActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToKlondike() { replaceActivity(std::make_unique<KlondikeActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -272,7 +275,7 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::TODO;
     } else if (activityName == "NotesList") {
       initialMenuItem = HomeMenuItem::NOTES;
-    } else if (activityName == "GamesList" || activityName == "Sudoku") {
+    } else if (activityName == "GamesList" || activityName == "Sudoku" || activityName == "Klondike") {
       initialMenuItem = HomeMenuItem::GAMES;
     }
   }
