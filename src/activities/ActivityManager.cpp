@@ -29,6 +29,7 @@
 #include "util/DiagnosticsActivity.h"
 #include "util/FullScreenMessageActivity.h"
 #include "util/UnitConverterActivity.h"
+#include "util/WeatherActivity.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -234,6 +235,8 @@ void ActivityManager::goToUnitConverter() {
 
 void ActivityManager::goToNotes() { replaceActivity(std::make_unique<NotesListActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToWeather() { replaceActivity(std::make_unique<WeatherActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToGames() { replaceActivity(std::make_unique<GamesListActivity>(renderer, mappedInput)); }
 
 void ActivityManager::goToSudoku() { replaceActivity(std::make_unique<SudokuActivity>(renderer, mappedInput)); }
@@ -277,6 +280,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::NOTES;
     } else if (activityName == "GamesList" || activityName == "Sudoku" || activityName == "Klondike") {
       initialMenuItem = HomeMenuItem::GAMES;
+    } else if (activityName == "Weather") {
+      initialMenuItem = HomeMenuItem::WEATHER;
     }
   }
   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem));

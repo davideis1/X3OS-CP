@@ -113,6 +113,7 @@ class ActivityManager {
   void goToCalculator();
   void goToUnitConverter();
   void goToNotes();
+  void goToWeather();
   void goToGames();
   void goToSudoku();
   void goToKlondike();

@@ -11,16 +11,17 @@
 #include "util/GridNavigator.h"
 
 namespace {
-enum class ToolId { CALCULATOR, CONVERT, SUDOKU, KLONDIKE, DIAGNOSTICS, WEATHER };
+enum class ToolId { CALCULATOR, CONVERT, DIAGNOSTICS, WEATHER };
 struct ToolDef {
   ToolId id;
   StrId label;
   UIIcon icon;
 };
 constexpr ToolDef kTools[ToolsFolderActivity::itemCount] = {
-    {ToolId::CALCULATOR, StrId::STR_CALCULATOR, UIIcon::None},   {ToolId::CONVERT, StrId::STR_CONVERT, UIIcon::None},
-    {ToolId::SUDOKU, StrId::STR_SUDOKU, UIIcon::None},           {ToolId::KLONDIKE, StrId::STR_KLONDIKE, UIIcon::None},
-    {ToolId::DIAGNOSTICS, StrId::STR_DIAGNOSTICS, UIIcon::None}, {ToolId::WEATHER, StrId::STR_WEATHER, UIIcon::Weather},
+    {ToolId::CALCULATOR, StrId::STR_CALCULATOR, UIIcon::None},
+    {ToolId::CONVERT, StrId::STR_CONVERT, UIIcon::None},
+    {ToolId::DIAGNOSTICS, StrId::STR_DIAGNOSTICS, UIIcon::None},
+    {ToolId::WEATHER, StrId::STR_WEATHER, UIIcon::Weather},
 };
 }  // namespace
 
@@ -36,8 +37,7 @@ void ToolsFolderActivity::loop() {
     return;
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    const auto& tool = kTools[selectedIndex];
-    switch (tool.id) {
+    switch (kTools[selectedIndex].id) {
       case ToolId::DIAGNOSTICS:
         activityManager.goToDiagnostics();
         break;
@@ -47,8 +47,8 @@ void ToolsFolderActivity::loop() {
       case ToolId::CONVERT:
         activityManager.goToUnitConverter();
         break;
-      default:
-        activityManager.goToComingSoon(tool.label);
+      case ToolId::WEATHER:
+        activityManager.goToWeather();
         break;
     }
     return;
