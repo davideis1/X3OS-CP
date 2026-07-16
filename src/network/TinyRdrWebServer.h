@@ -139,4 +139,11 @@ class TinyRdrWebServer {
   void handleGetWifiNetworks() const;
   void handlePostWifiNetwork();
   void handleDeleteWifiNetwork();
+
+  // Weather location handlers
+  void handleGetWeatherLocations() const;
+  void handlePostWeatherLocation();
+  void handleDeleteWeatherLocation();
+  void handleSetDefaultWeatherLocation();
+  void handleGeocodeZip();
 };

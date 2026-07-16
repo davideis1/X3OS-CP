@@ -26,6 +26,7 @@
 #include "TinyRdrSettings.h"
 #include "TinyRdrState.h"
 #include "TodoStore.h"
+#include "WeatherLocationStore.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
@@ -352,6 +353,7 @@ void setup() {
   KOREADER_STORE.loadFromFile();
   OPDS_STORE.loadFromFile();
   TODO_STORE.loadFromFile();
+  WEATHER_STORE.loadFromFile();
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 

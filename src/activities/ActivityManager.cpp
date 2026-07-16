@@ -9,6 +9,7 @@
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
+#include "games/FiveCrownsActivity.h"
 #include "games/KlondikeActivity.h"
 #include "games/SudokuActivity.h"
 #include "home/CrashActivity.h"
@@ -243,6 +244,8 @@ void ActivityManager::goToSudoku() { replaceActivity(std::make_unique<SudokuActi
 
 void ActivityManager::goToKlondike() { replaceActivity(std::make_unique<KlondikeActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToFiveCrowns() { replaceActivity(std::make_unique<FiveCrownsActivity>(renderer, mappedInput)); }
+
 void ActivityManager::goToReader(std::string path) {
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
 }
@@ -278,7 +281,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem) {
       initialMenuItem = HomeMenuItem::TODO;
     } else if (activityName == "NotesList") {
       initialMenuItem = HomeMenuItem::NOTES;
-    } else if (activityName == "GamesList" || activityName == "Sudoku" || activityName == "Klondike") {
+    } else if (activityName == "GamesList" || activityName == "Sudoku" || activityName == "Klondike" ||
+               activityName == "FiveCrowns") {
       initialMenuItem = HomeMenuItem::GAMES;
     } else if (activityName == "Weather") {
       initialMenuItem = HomeMenuItem::WEATHER;

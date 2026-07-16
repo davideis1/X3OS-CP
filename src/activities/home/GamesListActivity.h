@@ -3,13 +3,13 @@
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
 
-// Games hub opened from Home. Sudoku is real; Klondike still routes to ComingSoonActivity.
+// Games hub opened from Home: Sudoku, Klondike, Five Crowns.
 class GamesListActivity final : public Activity {
   ButtonNavigator buttonNavigator;
   int selectedIndex = 0;
 
  public:
-  static constexpr int itemCount = 2;
+  static constexpr int itemCount = 3;
 
   explicit GamesListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
       : Activity("GamesList", renderer, mappedInput) {}

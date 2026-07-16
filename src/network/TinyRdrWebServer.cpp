@@ -5,6 +5,7 @@
 #include <HalGPIO.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <SecureHttpClient.h>
 #include <WiFi.h>
 #include <esp_efuse.h>
 #include <esp_efuse_table.h>
@@ -12,12 +13,14 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 
-#include "TinyRdrSettings.h"
 #include "FontInstaller.h"
 #include "OpdsServerStore.h"
 #include "SdCardFontSystem.h"
 #include "SettingsList.h"
+#include "TinyRdrSettings.h"
+#include "WeatherLocationStore.h"
 #include "WebDAVHandler.h"
 #include "WifiCredentialStore.h"
 #include "html/FilesPageHtml.generated.h"
@@ -33,6 +36,24 @@ namespace {
 constexpr const char* HIDDEN_ITEMS[] = {"System Volume Information", "XTCache"};
 constexpr uint16_t UDP_PORTS[] = {54982, 48123, 39001, 44044, 59678};
 constexpr uint16_t LOCAL_UDP_PORT = 8134;
+
+// Same wolfSSL TLS-handshake heap floor WeatherActivity.cpp/KOReaderSyncClient.cpp use. The web
+// server already has request buffers, HTML templates, and other route state live on the heap when
+// this fires, so free heap here can be meaningfully lower than a freshly-entered activity's; an
+// allocation failure deep inside wolfSSL's non-SP (generic bignum) crypto path isn't guaranteed to
+// fail gracefully, so check heap before ever attempting the handshake.
+constexpr uint32_t MIN_HEAP_FOR_TLS = 55000;
+
+bool insufficientHeapForTls() {
+  const uint32_t freeHeap = ESP.getFreeHeap();
+  const uint32_t maxAllocHeap = ESP.getMaxAllocHeap();
+  if (freeHeap < MIN_HEAP_FOR_TLS || maxAllocHeap < MIN_HEAP_FOR_TLS) {
+    LOG_ERR("WEB", "Insufficient heap for TLS handshake: %u free, %u max alloc (need %u)", freeHeap, maxAllocHeap,
+            MIN_HEAP_FOR_TLS);
+    return true;
+  }
+  return false;
+}
 
 // Static pointer for WebSocket callback (WebSocketsServer requires C-style callback)
 TinyRdrWebServer* wsInstance = nullptr;
@@ -177,6 +198,13 @@ void TinyRdrWebServer::begin() {
   server->on("/api/wifi", HTTP_GET, [this] { handleGetWifiNetworks(); });
   server->on("/api/wifi", HTTP_POST, [this] { handlePostWifiNetwork(); });
   server->on("/api/wifi/delete", HTTP_POST, [this] { handleDeleteWifiNetwork(); });
+
+  // Weather location endpoints
+  server->on("/api/weather", HTTP_GET, [this] { handleGetWeatherLocations(); });
+  server->on("/api/weather", HTTP_POST, [this] { handlePostWeatherLocation(); });
+  server->on("/api/weather/delete", HTTP_POST, [this] { handleDeleteWeatherLocation(); });
+  server->on("/api/weather/default", HTTP_POST, [this] { handleSetDefaultWeatherLocation(); });
+  server->on("/api/weather/geocode-zip", HTTP_POST, [this] { handleGeocodeZip(); });
 
   server->onNotFound([this] { handleNotFound(); });
   LOG_DBG("WEB", "[MEM] Free heap after route setup: %d bytes", ESP.getFreeHeap());
@@ -454,9 +482,7 @@ void TinyRdrWebServer::scanFiles(const char* path, const std::function<void(File
 
 bool TinyRdrWebServer::isEpubFile(const String& filename) const { return FsHelpers::hasEpubExtension(filename); }
 
-void TinyRdrWebServer::handleFileList() const {
-  sendHtmlContent(server.get(), FilesPageHtml, sizeof(FilesPageHtml));
-}
+void TinyRdrWebServer::handleFileList() const { sendHtmlContent(server.get(), FilesPageHtml, sizeof(FilesPageHtml)); }
 
 void TinyRdrWebServer::handleFileListData() const {
   // Get current path from query string (default to root)
@@ -1540,6 +1566,240 @@ void TinyRdrWebServer::handleDeleteWifiNetwork() {
 
   LOG_DBG("WEB", "Deleted Wi-Fi network at index %d (SSID: %s)", idx, ssid.c_str());
   server->send(200, "text/plain", "OK");
+}
+
+// ---- Weather Locations API ----
+
+void TinyRdrWebServer::handleGetWeatherLocations() const {
+  const auto& locations = WEATHER_STORE.getLocations();
+
+  // Stream JSON incrementally to avoid allocating the full response in memory
+  server->setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server->send(200, "application/json", "");
+  server->sendContent("{\"defaultIndex\":");
+  server->sendContent(String(WEATHER_STORE.getDefaultIndex()));
+  server->sendContent(",\"locations\":[");
+
+  char output[192];
+  constexpr size_t outputSize = sizeof(output);
+  JsonDocument doc;
+
+  for (size_t i = 0; i < locations.size(); i++) {
+    doc.clear();
+    doc["index"] = i;
+    doc["name"] = locations[i].name;
+    doc["lat"] = locations[i].lat;
+    doc["lon"] = locations[i].lon;
+
+    const size_t written = serializeJson(doc, output, outputSize);
+    if (written >= outputSize) continue;
+
+    if (i > 0) server->sendContent(",");
+    server->sendContent(output);
+  }
+
+  server->sendContent("]}");
+  server->sendContent("");
+  LOG_DBG("WEB", "Served weather locations API (%zu location(s))", locations.size());
+}
+
+void TinyRdrWebServer::handlePostWeatherLocation() {
+  if (!server->hasArg("plain")) {
+    server->send(400, "text/plain", "Missing JSON body");
+    return;
+  }
+
+  const String body = server->arg("plain");
+  JsonDocument doc;
+  const DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
+    return;
+  }
+
+  WeatherLocation location;
+  location.name = doc["name"] | std::string("");
+  location.lat = doc["lat"] | 0.0;
+  location.lon = doc["lon"] | 0.0;
+  if (location.name.empty() || location.lat < -90.0 || location.lat > 90.0 || location.lon < -180.0 ||
+      location.lon > 180.0) {
+    server->send(400, "text/plain", "Invalid name/latitude/longitude");
+    return;
+  }
+
+  if (doc["index"].is<int>()) {
+    int idx = doc["index"].as<int>();
+    if (idx < 0 || idx >= static_cast<int>(WEATHER_STORE.getCount())) {
+      server->send(400, "text/plain", "Invalid location index");
+      return;
+    }
+    WEATHER_STORE.updateLocation(static_cast<size_t>(idx), location);
+    LOG_DBG("WEB", "Updated weather location at index %d", idx);
+  } else {
+    if (!WEATHER_STORE.addLocation(location)) {
+      server->send(400, "text/plain", "Cannot add location (limit reached)");
+      return;
+    }
+    LOG_DBG("WEB", "Added weather location: %s", location.name.c_str());
+  }
+
+  server->send(200, "text/plain", "OK");
+}
+
+// Uses POST (not HTTP DELETE) because ESP32 WebServer doesn't support DELETE with body.
+void TinyRdrWebServer::handleDeleteWeatherLocation() {
+  if (!server->hasArg("plain")) {
+    server->send(400, "text/plain", "Missing JSON body");
+    return;
+  }
+
+  const String body = server->arg("plain");
+  JsonDocument doc;
+  const DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
+    return;
+  }
+
+  if (!doc["index"].is<int>()) {
+    server->send(400, "text/plain", "Missing index");
+    return;
+  }
+
+  int idx = doc["index"].as<int>();
+  if (idx < 0 || idx >= static_cast<int>(WEATHER_STORE.getCount())) {
+    server->send(400, "text/plain", "Invalid location index");
+    return;
+  }
+
+  WEATHER_STORE.removeLocation(static_cast<size_t>(idx));
+  LOG_DBG("WEB", "Deleted weather location at index %d", idx);
+  server->send(200, "text/plain", "OK");
+}
+
+void TinyRdrWebServer::handleSetDefaultWeatherLocation() {
+  if (!server->hasArg("plain")) {
+    server->send(400, "text/plain", "Missing JSON body");
+    return;
+  }
+
+  const String body = server->arg("plain");
+  JsonDocument doc;
+  const DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
+    return;
+  }
+
+  if (!doc["index"].is<int>()) {
+    server->send(400, "text/plain", "Missing index");
+    return;
+  }
+
+  int idx = doc["index"].as<int>();
+  if (idx < 0 || idx >= static_cast<int>(WEATHER_STORE.getCount())) {
+    server->send(400, "text/plain", "Invalid location index");
+    return;
+  }
+
+  WEATHER_STORE.setDefault(static_cast<size_t>(idx));
+  LOG_DBG("WEB", "Set default weather location to index %d", idx);
+  server->send(200, "text/plain", "OK");
+}
+
+// Geocodes a US zip code to a named location via Zippopotam.us (free, no API key) and adds it
+// directly to WeatherLocationStore. Only reachable in STA ("Join Network") mode — in AP/hotspot
+// mode the device has no internet uplink at all, so we fail fast with a clear message instead of
+// letting the HTTP client time out.
+void TinyRdrWebServer::handleGeocodeZip() {
+  if (apMode) {
+    server->send(503, "text/plain", "Join a Wi-Fi network (not hotspot mode) to add a location by zip code");
+    return;
+  }
+
+  if (insufficientHeapForTls()) {
+    server->send(503, "text/plain", "Not enough free memory for a secure connection right now — try again shortly");
+    return;
+  }
+
+  if (!server->hasArg("plain")) {
+    server->send(400, "text/plain", "Missing JSON body");
+    return;
+  }
+
+  const String body = server->arg("plain");
+  JsonDocument doc;
+  const DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    server->send(400, "text/plain", String("Invalid JSON: ") + err.c_str());
+    return;
+  }
+
+  const std::string zip = doc["zip"] | std::string("");
+  if (zip.length() != 5 || !std::all_of(zip.begin(), zip.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+    server->send(400, "text/plain", "Zip code must be 5 digits");
+    return;
+  }
+
+  const std::string url = "https://api.zippopotam.us/us/" + zip;
+  LOG_DBG("WEB", "Geocoding zip %s (heap: %u)", zip.c_str(), (unsigned)ESP.getFreeHeap());
+
+  esp_task_wdt_reset();  // The TLS handshake + request below blocks the whole web server
+  freeink::SecureHttpClient http;
+  http.setInsecure();
+  bool success = false;
+  std::string placeName;
+  double lat = 0.0;
+  double lon = 0.0;
+
+  if (http.begin(url)) {
+    const int httpCode = http.GET();
+    if (httpCode == 200) {
+      JsonDocument geo;
+      const DeserializationError geoErr = deserializeJson(geo, http.getString().c_str());
+      if (!geoErr && geo["places"].is<JsonArrayConst>() && geo["places"].size() > 0) {
+        JsonObjectConst place = geo["places"][0];
+        const std::string city = place["place name"] | std::string("");
+        const std::string state = place["state abbreviation"] | std::string("");
+        placeName = state.empty() ? city : city + ", " + state;
+        lat = strtod((place["latitude"] | std::string("")).c_str(), nullptr);
+        lon = strtod((place["longitude"] | std::string("")).c_str(), nullptr);
+        success = !placeName.empty() && lat != 0.0 && lon != 0.0;
+      } else {
+        LOG_ERR("WEB", "Zip geocode JSON parse/shape failed: %s", geoErr ? geoErr.c_str() : "no places");
+      }
+    } else if (httpCode == 404) {
+      server->send(404, "text/plain", "Zip code not found");
+      http.end();
+      return;
+    } else {
+      LOG_ERR("WEB", "Zip geocode HTTP GET failed: %d", httpCode);
+    }
+    http.end();
+  } else {
+    LOG_ERR("WEB", "Zip geocode bad URL: %s", url.c_str());
+  }
+  esp_task_wdt_reset();
+
+  if (!success) {
+    server->send(502, "text/plain", "Couldn't look up that zip code");
+    return;
+  }
+
+  const WeatherLocation location{placeName, lat, lon};
+  if (!WEATHER_STORE.addLocation(location)) {
+    server->send(400, "text/plain", "Cannot add location (limit reached)");
+    return;
+  }
+
+  JsonDocument resp;
+  resp["name"] = placeName;
+  resp["lat"] = lat;
+  resp["lon"] = lon;
+  String output;
+  serializeJson(resp, output);
+  server->send(200, "application/json", output);
+  LOG_DBG("WEB", "Added weather location from zip %s: %s", zip.c_str(), placeName.c_str());
 }
 
 // WebSocket callback trampoline

@@ -13,6 +13,7 @@
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
+#include "WeatherLocationStore.h"
 #include "activities/ActivityResult.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
@@ -73,36 +74,14 @@ const char* weatherCodeLabel(int code) {
 }
 }  // namespace
 
-bool WeatherActivity::loadLocation() {
-  const String content = Storage.readFile(locationFilePath());
-  if (content.isEmpty()) return false;
-
-  const std::string s(content.c_str());
-  const size_t comma = s.find(',');
-  if (comma == std::string::npos) return false;
-
-  const double lat = strtod(s.substr(0, comma).c_str(), nullptr);
-  const double lon = strtod(s.substr(comma + 1).c_str(), nullptr);
-  if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) return false;
-
-  latitude = lat;
-  longitude = lon;
-  return true;
-}
-
-void WeatherActivity::saveLocation(double lat, double lon) {
-  char buf[64];
-  snprintf(buf, sizeof(buf), "%.6f,%.6f", lat, lon);
-  Storage.mkdir("/.tinyrdr");
-  Storage.writeFile(locationFilePath(), String(buf));
-  latitude = lat;
-  longitude = lon;
-  hasLocation = true;
-}
-
 void WeatherActivity::onEnter() {
   Activity::onEnter();
-  hasLocation = loadLocation();
+  const WeatherLocation* def = WEATHER_STORE.getDefault();
+  hasLocation = def != nullptr;
+  if (hasLocation) {
+    latitude = def->lat;
+    longitude = def->lon;
+  }
   state = hasLocation ? WeatherState::READY : WeatherState::NEED_LOCATION;
   errorText.clear();
   shouldTearDownWifiOnExit = false;
@@ -155,7 +134,29 @@ void WeatherActivity::promptForLocation() {
           return;
         }
 
-        saveLocation(lat, lon);
+        // Upsert a fixed-name "Device" entry in the shared store, rather than a separate
+        // standalone file — the web UI manages the rest of the list, this is just the one entry
+        // the on-device keyboard can create.
+        const auto& locations = WEATHER_STORE.getLocations();
+        int deviceIdx = -1;
+        for (size_t i = 0; i < locations.size(); i++) {
+          if (locations[i].name == "Device") {
+            deviceIdx = static_cast<int>(i);
+            break;
+          }
+        }
+        const WeatherLocation location{"Device", lat, lon};
+        if (deviceIdx >= 0) {
+          WEATHER_STORE.updateLocation(static_cast<size_t>(deviceIdx), location);
+          WEATHER_STORE.setDefault(static_cast<size_t>(deviceIdx));
+        } else {
+          WEATHER_STORE.addLocation(location);
+          WEATHER_STORE.setDefault(WEATHER_STORE.getCount() - 1);
+        }
+
+        latitude = lat;
+        longitude = lon;
+        hasLocation = true;
         errorText.clear();
         state = WeatherState::READY;
         requestUpdate();

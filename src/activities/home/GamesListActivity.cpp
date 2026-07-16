@@ -8,7 +8,8 @@
 #include "fontIds.h"
 
 namespace {
-constexpr StrId kGameLabels[GamesListActivity::itemCount] = {StrId::STR_SUDOKU, StrId::STR_KLONDIKE};
+constexpr StrId kGameLabels[GamesListActivity::itemCount] = {StrId::STR_SUDOKU, StrId::STR_KLONDIKE,
+                                                             StrId::STR_FIVE_CROWNS};
 }  // namespace
 
 void GamesListActivity::onEnter() {
@@ -24,10 +25,16 @@ void GamesListActivity::loop() {
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (selectedIndex == 0) {
-      activityManager.goToSudoku();
-    } else {
-      activityManager.goToKlondike();
+    switch (selectedIndex) {
+      case 0:
+        activityManager.goToSudoku();
+        break;
+      case 1:
+        activityManager.goToKlondike();
+        break;
+      default:
+        activityManager.goToFiveCrowns();
+        break;
     }
     return;
   }

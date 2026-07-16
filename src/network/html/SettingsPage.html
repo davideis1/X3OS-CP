@@ -302,6 +302,7 @@
 
   <div id="wifi-container"></div>
   <div id="opds-container"></div>
+  <div id="weather-container"></div>
 
   <div class="card">
     <p style="text-align: center; color: #95a5a6; margin: 0;">
@@ -825,8 +826,165 @@
     }
   }
 
+  // --- Weather Location Management ---
+  // Mirrors the OPDS server management pattern above, talking to the /api/weather REST
+  // endpoints. One location is marked "default" — that's what the on-device Weather screen
+  // fetches for. "Add by Zip" geocodes server-side (only reachable when the device has joined a
+  // real Wi-Fi network, not in hotspot/AP mode) and adds the result directly.
+  let weatherLocations = [];
+  let weatherDefaultIndex = -1;
+
+  function renderWeatherLocation(loc, idx, defaultIndex) {
+    const isNew = idx === -1;
+    const id = isNew ? 'new' : idx;
+    const isDefault = !isNew && idx === defaultIndex;
+    return '<div class="opds-server" id="weather-' + id + '">' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Name</span>' +
+        '<span class="setting-control"><input type="text" id="weather-name-' + id + '" value="' + escapeHtml(loc.name || '') + '"></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Latitude</span>' +
+        '<span class="setting-control"><input type="text" id="weather-lat-' + id + '" value="' + (loc.lat !== undefined && loc.lat !== '' ? loc.lat : '') + '"></span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Longitude</span>' +
+        '<span class="setting-control"><input type="text" id="weather-lon-' + id + '" value="' + (loc.lon !== undefined && loc.lon !== '' ? loc.lon : '') + '"></span>' +
+      '</div>' +
+      (isDefault ? '<p style="color:var(--accent-color);margin:4px 0;">Default location</p>' : '') +
+      '<div class="opds-actions">' +
+        '<button class="btn-small btn-save-server" onclick="saveWeatherLocation(' + idx + ')">Save</button>' +
+        (isNew || isDefault ? '' : '<button class="btn-small btn-add" onclick="setDefaultWeatherLocation(' + idx + ')">Set Default</button>') +
+        (isNew ? '' : '<button class="btn-small btn-delete" onclick="deleteWeatherLocation(' + idx + ')">Delete</button>') +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderWeatherSection() {
+    const container = document.getElementById('weather-container');
+    let html = '<div class="card"><h2>Weather Locations</h2>';
+
+    if (weatherLocations.length === 0) {
+      html += '<p style="color:var(--label-color);text-align:center;">No weather locations configured</p>';
+    } else {
+      weatherLocations.forEach(function(loc, idx) {
+        html += renderWeatherLocation(loc, idx, weatherDefaultIndex);
+      });
+    }
+
+    html += '<div class="opds-server">' +
+      '<div class="setting-row">' +
+        '<span class="setting-name">Add by Zip Code</span>' +
+        '<span class="setting-control"><input type="text" id="weather-zip" placeholder="e.g. 90210" maxlength="5" style="width:90px;"></span>' +
+      '</div>' +
+      '<div class="opds-actions">' +
+        '<button class="btn-small btn-add" onclick="geocodeZip()">Add by Zip</button>' +
+      '</div>' +
+    '</div>';
+
+    html += '<div style="margin-top:12px;text-align:center;" id="weather-add-anchor">' +
+      '<button class="btn-small btn-add" onclick="addWeatherLocation()">+ Add Location Manually</button>' +
+    '</div></div>';
+    container.innerHTML = html;
+  }
+
+  async function loadWeatherLocations() {
+    try {
+      const resp = await fetch('/api/weather');
+      if (!resp.ok) throw new Error('Failed to load');
+      const data = await resp.json();
+      weatherLocations = data.locations || [];
+      weatherDefaultIndex = data.defaultIndex !== undefined ? data.defaultIndex : -1;
+      renderWeatherSection();
+    } catch (e) {
+      console.error('Weather locations load error:', e);
+    }
+  }
+
+  function addWeatherLocation() {
+    if (document.getElementById('weather-new')) return;
+    const anchor = document.getElementById('weather-add-anchor');
+    anchor.insertAdjacentHTML('beforebegin', renderWeatherLocation({name: '', lat: '', lon: ''}, -1, weatherDefaultIndex));
+  }
+
+  async function saveWeatherLocation(idx) {
+    const id = idx === -1 ? 'new' : idx;
+    const data = {
+      name: document.getElementById('weather-name-' + id).value,
+      lat: parseFloat(document.getElementById('weather-lat-' + id).value),
+      lon: parseFloat(document.getElementById('weather-lon-' + id).value),
+    };
+    if (idx >= 0) data.index = idx;
+
+    try {
+      const resp = await fetch('/api/weather', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      showMessage('Weather location saved!', false);
+      await loadWeatherLocations();
+    } catch (e) {
+      showMessage('Error: ' + e.message, true);
+    }
+  }
+
+  async function deleteWeatherLocation(idx) {
+    if (!confirm('Delete this weather location?')) return;
+    try {
+      const resp = await fetch('/api/weather/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({index: idx})
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      showMessage('Weather location deleted', false);
+      await loadWeatherLocations();
+    } catch (e) {
+      showMessage('Error: ' + e.message, true);
+    }
+  }
+
+  async function setDefaultWeatherLocation(idx) {
+    try {
+      const resp = await fetch('/api/weather/default', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({index: idx})
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      showMessage('Default location updated', false);
+      await loadWeatherLocations();
+    } catch (e) {
+      showMessage('Error: ' + e.message, true);
+    }
+  }
+
+  async function geocodeZip() {
+    const zip = document.getElementById('weather-zip').value.trim();
+    if (!/^[0-9]{5}$/.test(zip)) {
+      showMessage('Enter a 5-digit zip code', true);
+      return;
+    }
+    try {
+      const resp = await fetch('/api/weather/geocode-zip', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({zip: zip})
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const loc = await resp.json();
+      showMessage('Added ' + loc.name + '!', false);
+      await loadWeatherLocations();
+    } catch (e) {
+      showMessage('Error: ' + e.message, true);
+    }
+  }
+
   loadWifiNetworks();
   loadOpdsServers();
+  loadWeatherLocations();
 </script>
 </body>
 </html>
